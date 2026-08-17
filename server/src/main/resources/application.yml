@@ -4,7 +4,7 @@ spring:
   config:
     import: optional:file:.env[.properties]
   profiles:
-    # Chạy trên máy mặc định dùng local. Railway phải đặt SPRING_PROFILES_ACTIVE=cloud.
+    # Chạy trên máy mặc định dùng local. Render phải đặt SPRING_PROFILES_ACTIVE=cloud.
     active: ${SPRING_PROFILES_ACTIVE:local}
 
   ai:
@@ -22,7 +22,7 @@ spring:
       hibernate:
         show_sql: true
         format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
+        # Hibernate tự nhận MySQL ở local và PostgreSQL trên Supabase.
 
   servlet:
     multipart:
@@ -30,7 +30,7 @@ spring:
       max-request-size: 6MB
 
 server:
-  # Railway tự cấp PORT; local tiếp tục dùng 8080.
+  # Render tự cấp PORT; local tiếp tục dùng 8080.
   port: ${PORT:8080}
 
 jwt:

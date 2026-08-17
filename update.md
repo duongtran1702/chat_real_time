@@ -225,6 +225,17 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - Mở rộng `deploy.md` để giải thích các file Railway sử dụng và nhắc không cấu hình sai Root Directory.
 - Tô nổi bật `@CloseFriend` trong nội dung tin nhắn: màu xanh Messenger trên bong bóng sáng và màu xanh nhạt tương phản trên bong bóng xanh của người gửi.
 
+## Chuẩn bị deploy miễn phí bằng Render và Supabase
+
+**Ngày cập nhật**: 17/08/2026
+
+- Giữ MySQL cho profile `local` để cách chạy trên máy không thay đổi.
+- Thêm PostgreSQL JDBC Driver cho profile `cloud` kết nối Supabase.
+- Bỏ cấu hình ép Hibernate dùng MySQL; Hibernate tự nhận đúng hệ quản trị theo datasource của từng môi trường.
+- Cấu hình Hikari pool tối đa 5 kết nối để phù hợp giới hạn dự án Supabase Free.
+- Cập nhật `.env.example` và `deploy.md` sang Render + Supabase Session pooler IPv4, không cần IPv4 add-on trả phí.
+- Giữ mô hình một Docker container chạy chung React, Spring Boot và WebSocket để người mới không phải tách Netlify.
+
 ## Sửa trạng thái người đang online bị hiển thị ngoại tuyến
 
 **Ngày cập nhật**: 17/08/2026

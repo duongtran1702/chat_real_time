@@ -1,9 +1,14 @@
 spring:
   datasource:
-    # Railway cung cấp ba biến này; production không dùng localhost.
+    # Render nhận ba biến kết nối từ Supabase; production không dùng localhost.
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    hikari:
+      # Supabase Free giới hạn kết nối; giữ pool nhỏ cho ứng dụng chat demo.
+      maximum-pool-size: 5
+      minimum-idle: 0
+      connection-timeout: 30000
 
 app:
   auth:
