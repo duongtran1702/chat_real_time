@@ -1,0 +1,35 @@
+# Lấy các file cấu hình môi trường
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Lấy các file key, chứng chỉ
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*.jks
+*.pub
+*.rsa
+*.dsa
+id_rsa
+id_ed25519
+
+# Các file chứa secret/credential chung
+secrets.json
+secrets.yml
+auth.json
+*.secret
+*.credential
+credentials.json
+client_secret.json
+
+# Dự án Holiday chỉ dùng làm nguồn tham khảo, không thuộc bản deploy ChatRealTime
+/Holiday/
+
+# Cấu hình SSH và AWS local (phòng trường hợp commit nhầm)
+.aws/
+.ssh/

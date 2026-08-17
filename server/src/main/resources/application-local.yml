@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    # Chỉ dùng khi chạy ServerApplication trên máy cá nhân.
+    url: jdbc:mysql://localhost:3306/server_test_ai_db?createDatabaseIfNotExist=true
+    username: root
+    password: ${DB_PASS}
+
+app:
+  auth:
+    cookie:
+      secure: false
+      same-site: Lax
+  frontend:
+    # Chỉ cho phép hai cửa sổ Vite local dùng để chat thử.
+    allowed-origins:
+      - http://localhost:5173
+      - http://localhost:5174

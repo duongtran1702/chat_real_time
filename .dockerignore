@@ -1,0 +1,14 @@
+.git
+.agents
+.vscode
+.idea
+Holiday
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/dist
+**/build
+**/.gradle
+**/*.log
+update.md

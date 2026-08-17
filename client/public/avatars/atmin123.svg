@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">Ảnh đại diện Trần Trí Admin</title>
+  <defs>
+    <linearGradient id="background" x1="12" y1="8" x2="116" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A78BFA"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="40" fill="url(#background)"/>
+  <circle cx="64" cy="50" r="25" fill="#F8DCC7"/>
+  <path d="M35 50c0-23 13-36 30-36 18 0 30 12 31 34-12-2-23-10-28-18-8 9-18 15-33 20Z" fill="#312E81"/>
+  <path d="M19 128c4-32 21-49 45-49s41 17 45 49H19Z" fill="#F5F3FF"/>
+  <path d="M47 53c3 2 7 2 10 0M71 53c3 2 7 2 10 0" fill="none" stroke="#7C2D12" stroke-width="3" stroke-linecap="round"/>
+  <path d="M55 66c6 5 12 5 18 0" fill="none" stroke="#C2410C" stroke-width="3" stroke-linecap="round"/>
+</svg>

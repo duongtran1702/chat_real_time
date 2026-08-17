@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">Ảnh đại diện Nguyễn Văn User</title>
+  <defs>
+    <linearGradient id="background" x1="16" y1="12" x2="112" y2="116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="40" fill="url(#background)"/>
+  <circle cx="64" cy="50" r="25" fill="#FDE7D8"/>
+  <path d="M34 52c0-25 14-37 31-37 20 0 33 15 31 39-8-5-15-13-18-22-8 10-21 18-44 20Z" fill="#172554"/>
+  <path d="M20 128c3-32 20-49 44-49s41 17 44 49H20Z" fill="#EFF6FF"/>
+  <path d="M48 53c3 2 7 2 10 0M70 53c3 2 7 2 10 0" fill="none" stroke="#7C2D12" stroke-width="3" stroke-linecap="round"/>
+  <path d="M55 66c6 5 12 5 18 0" fill="none" stroke="#C2410C" stroke-width="3" stroke-linecap="round"/>
+</svg>

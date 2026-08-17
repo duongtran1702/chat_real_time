@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:chat_test;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  ai:
+    openai:
+      api-key: test-key
+
+jwt:
+  secretKey: 3cfa76ef14937c1c0ea519f8fc057a80fcd04a7420f8e8bcd0a7567c272e007b
+  accessExpiration: 60000
+  refreshExpiration: 120000
