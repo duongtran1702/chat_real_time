@@ -150,8 +150,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                   key={conv.id}
                   onClick={() => onSelect(conv.id)}
                   className={`group flex min-h-[72px] w-full cursor-pointer items-center gap-3 rounded-2xl px-2.5 py-2 text-left transition-all duration-200 ${
-                    isActive 
-                      ? 'bg-[#0066ff]/[0.07] shadow-sm' 
+                    isActive
+                      ? 'bg-[#0066ff]/[0.07] shadow-sm'
                       : 'hover:bg-black/[0.03] hover:shadow-sm active:scale-[0.99]'
                   }`}
                 >
@@ -166,10 +166,10 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                       {otherParticipant?.fullName || 'Người dùng'}
                     </h3>
                     <p className={`truncate text-[13px] ${
-                      isActive 
-                        ? 'font-medium text-[#0066ff]/80' 
-                        : isOnline 
-                          ? 'font-medium text-emerald-600' 
+                      isActive
+                        ? 'font-medium text-[#0066ff]/80'
+                        : isOnline
+                          ? 'font-medium text-emerald-600'
                           : 'text-slate-400'
                     }`}>
                       {isOnline ? 'Đang hoạt động' : 'Đang ngoại tuyến'}

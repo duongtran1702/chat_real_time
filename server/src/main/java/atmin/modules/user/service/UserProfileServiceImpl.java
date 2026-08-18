@@ -64,7 +64,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         if (query == null || query.trim().isEmpty()) {
             return java.util.Collections.emptyList();
         }
-        
+
         java.util.List<User> users = userRepository.findByUsernameContainingIgnoreCaseAndStatusAndIdNot(
                 query.trim(),
                 atmin.modules.user.entity.UserStatus.ACTIVE,
@@ -75,7 +75,7 @@ public class UserProfileServiceImpl implements UserProfileService {
                         org.springframework.data.domain.Sort.by("username").ascending()
                 )
         );
-        
+
         return users.stream()
                 .map(UserProfileResponse::fromEntity)
                 .toList();

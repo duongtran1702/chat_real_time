@@ -71,7 +71,7 @@ public class ChatServiceImpl implements ChatService {
 
         // Broadcast sự kiện tin nhắn mới vào topic phòng chat
         messagingTemplate.convertAndSend("/topic/conversation/" + request.getConversationId(), response);
-        
+
         // Cập nhật List Conversation Sidebar
         messagingTemplate.convertAndSend("/topic/admin/conversations", "update");
 
@@ -125,7 +125,7 @@ public class ChatServiceImpl implements ChatService {
         newConv.setId(UUID.randomUUID().toString());
         newConv.setGroup(false);
         newConv.setParticipants(new java.util.HashSet<>(Set.of(currentUser, targetUser)));
-        
+
         conversationRepository.save(newConv);
         
         return atmin.modules.chat.dto.ConversationResponse.fromEntity(newConv);

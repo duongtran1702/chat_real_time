@@ -58,7 +58,7 @@ function App() {
   }
 
   return (
-    <main className="app-viewport relative flex w-full max-w-[100vw] overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50/30 to-indigo-50/20 font-sans antialiased">
+    <main className="app-viewport flex w-full max-w-[100vw] overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50/30 to-indigo-50/20 font-sans antialiased">
       <Toaster position="top-center" toastOptions={{ duration: 3500 }} />
       
       {/* Sidebar - Conversation List with Logout */}

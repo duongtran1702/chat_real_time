@@ -41,7 +41,7 @@ public class ChatController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal String userId) {
-        
+
         // Kiểm tra quyền (có thể ném exception nếu không có quyền)
         if (!conversationRepository.existsByIdAndParticipants_Id(conversationId, userId)) {
             throw new IllegalArgumentException("Bạn không có quyền xem phòng chat này");

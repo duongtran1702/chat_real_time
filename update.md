@@ -448,6 +448,8 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - Theo dõi thay đổi kích thước, vị trí viewport và xoay màn hình để bố cục tự co giãn trên Android và iOS.
 - Tự đưa cuối cuộc trò chuyện vào vùng nhìn thấy khi người dùng chạm vào ô nhập.
 - Vẫn giữ khoảng đệm safe-area cho thiết bị có thanh Home hoặc tai thỏ.
+- Khai báo `interactive-widget=resizes-content`, tắt chế độ Virtual Keyboard phủ nội dung trên trình duyệt hỗ trợ và đồng bộ viewport nhiều nhịp khi input focus/blur.
+- Đưa thanh soạn tin lên lớp hiển thị riêng và bỏ phần safe-area dư khi bàn phím đang mở, giúp người dùng luôn nhìn thấy nội dung đang nhập.
 
 ## Sửa lỗi phản hồi bảo mật với kiểu ngày giờ Java
 

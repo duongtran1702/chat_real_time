@@ -186,7 +186,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ presenceMap }) => {
       </div>
 
       {/* Input Area — glass effect */}
-      <div className="glass-elevated relative min-w-0 shrink-0 border-t border-black/[0.04] px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 sm:px-3 sm:py-2.5">
+      <div className="chat-composer glass-elevated relative min-w-0 shrink-0 border-t border-black/[0.04] px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 sm:px-3 sm:py-2.5">
         {/* Reply preview bar */}
         {replyingTo && (
           <ReplyPreview

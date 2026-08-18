@@ -108,9 +108,9 @@ export const Login = ({ onSwitchToRegister }: LoginProps) => {
                 <div className="mt-6 text-center">
                     <p className="text-sm text-gray-500 font-medium">
                         Chưa có tài khoản?{' '}
-                        <button 
+                        <button
                             onClick={onSwitchToRegister}
-                            type="button" 
+                            type="button"
                             className="text-[#0066ff] font-bold hover:underline"
                         >
                             Đăng ký ngay
