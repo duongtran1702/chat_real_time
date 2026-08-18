@@ -106,6 +106,32 @@ class ChatServiceImplTest {
         order.verify(conversationRepository).save(any(Conversation.class));
     }
 
+    @Test
+    void processImageMessageStoresImageTypeAndBroadcastsIt() {
+        Conversation currentConversation = conversation("conversation-current");
+        when(conversationRepository.findById(currentConversation.getId()))
+                .thenReturn(Optional.of(currentConversation));
+        when(conversationRepository.existsByIdAndParticipants_Id(currentConversation.getId(), "user-a"))
+                .thenReturn(true);
+
+        service.processImageMessage(
+                currentConversation.getId(),
+                "https://res.cloudinary.com/demo/image/upload/chat.jpg",
+                "01234567-89ab-4cde-8fab-0123456789ab",
+                null,
+                "user-a"
+        );
+
+        verify(messageRepository).save(org.mockito.ArgumentMatchers.argThat(message ->
+                message.getType() == Message.MessageType.IMAGE
+                        && message.getContent().startsWith("https://res.cloudinary.com/")
+        ));
+        verify(messagingTemplate).convertAndSend(
+                org.mockito.ArgumentMatchers.eq("/topic/conversation/" + currentConversation.getId()),
+                any(Object.class)
+        );
+    }
+
     private Conversation conversation(String id) {
         Conversation conversation = new Conversation();
         conversation.setId(id);

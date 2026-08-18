@@ -38,6 +38,18 @@ public class ChatServiceImpl implements ChatService {
     @Override
     @Transactional
     public MessageResponse processMessage(MessageRequest request, String senderId) {
+        return saveMessage(request, senderId, Message.MessageType.TEXT);
+    }
+
+    @Override
+    @Transactional
+    public MessageResponse processImageMessage(String conversationId, String imageUrl, String clientMessageId,
+                                               String replyToMessageId, String senderId) {
+        MessageRequest request = new MessageRequest(imageUrl, conversationId, clientMessageId, replyToMessageId);
+        return saveMessage(request, senderId, Message.MessageType.IMAGE);
+    }
+
+    private MessageResponse saveMessage(MessageRequest request, String senderId, Message.MessageType type) {
         // Kiểm tra phòng chat
         Conversation conversation = conversationRepository.findById(request.getConversationId())
                 .orElseThrow(() -> new ResourceNotFoundException("Conversation", "id", request.getConversationId()));
@@ -53,7 +65,7 @@ public class ChatServiceImpl implements ChatService {
         message.setClientMessageId(request.getClientMessageId());
         message.setContent(request.getContent().trim());
         message.setStatus(Message.MessageStatus.SENT);
-        message.setType(Message.MessageType.TEXT);
+        message.setType(type);
 
         // Xử lý reply: tìm tin nhắn gốc và validate cùng conversation
         if (request.getReplyToMessageId() != null && !request.getReplyToMessageId().isBlank()) {
@@ -76,7 +88,7 @@ public class ChatServiceImpl implements ChatService {
         messagingTemplate.convertAndSend("/topic/admin/conversations", "update");
 
         // Chỉ kích hoạt AI sau khi transaction hiện tại commit thành công.
-        if (CloseFriendAiService.isMentioned(request.getContent())) {
+        if (type == Message.MessageType.TEXT && CloseFriendAiService.isMentioned(request.getContent())) {
             eventPublisher.publishEvent(new AiReplyRequestedEvent(conversation.getId(), request.getContent()));
         }
 

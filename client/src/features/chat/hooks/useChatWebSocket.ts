@@ -181,5 +181,33 @@ export function useChatWebSocket({ token, conversationId, userId, onProfileUpdat
     return true;
   }, [conversationId, userId]);
 
-  return { messages, presenceMap, sendMessage, isConnected, stompClient: clientRef.current };
+  const sendImage = useCallback(async (
+    file: File,
+    replyTo?: { id: string; senderId: string; content: string } | null,
+  ) => {
+    if (!conversationId || !userId || !clientRef.current?.connected) {
+      toast.error('Mất kết nối. Vui lòng chờ kết nối lại rồi gửi ảnh.');
+      return false;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('clientMessageId', crypto.randomUUID());
+    if (replyTo?.id) formData.append('replyToMessageId', replyTo.id);
+
+    try {
+      await api.post(`/chat/conversations/${conversationId}/images`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return true;
+    } catch (error: unknown) {
+      const message = typeof error === 'object' && error !== null && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+        : null;
+      toast.error(message || 'Không thể gửi ảnh. Vui lòng thử lại.');
+      return false;
+    }
+  }, [conversationId, userId]);
+
+  return { messages, presenceMap, sendMessage, sendImage, isConnected, stompClient: clientRef.current };
 }

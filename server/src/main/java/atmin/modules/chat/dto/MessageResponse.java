@@ -25,6 +25,7 @@ public class MessageResponse {
         private String id;
         private String senderId;
         private String content;
+        private Message.MessageType type;
 
         public static RepliedMessageSummary fromEntity(Message message) {
             if (message == null) return null;
@@ -36,6 +37,7 @@ public class MessageResponse {
                     .id(message.getId())
                     .senderId(message.getSenderId())
                     .content(truncatedContent)
+                    .type(message.getType())
                     .build();
         }
     }

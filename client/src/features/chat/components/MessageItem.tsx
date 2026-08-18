@@ -45,7 +45,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 }) => {
   const isBot = message.senderId === 'bot_closefriend';
   const isRead = message.status === 'READ';
-  const contentParts = message.content.split(/(@CloseFriend)/gi);
+  const contentParts = message.type === 'TEXT' ? message.content.split(/(@CloseFriend)/gi) : [];
   const replied = message.repliedMessage;
 
   const handleReply = useCallback(() => {
@@ -103,11 +103,20 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             title="Nhấn để xem tin nhắn gốc"
           >
             <span className="reply-quote-sender">{getRepliedSenderName()}</span>
-            <span className="reply-quote-content">{replied.content}</span>
+            <span className="reply-quote-content">{replied.type === 'IMAGE' ? '📷 Ảnh' : replied.content}</span>
           </button>
         )}
         
-        <p className="message-content whitespace-pre-wrap leading-[1.42]">
+        {message.type === 'IMAGE' ? (
+          <a href={message.content} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-[12px]">
+            <img
+              src={message.content}
+              alt="Ảnh trong cuộc trò chuyện"
+              loading="lazy"
+              className="max-h-[360px] w-auto max-w-full object-contain"
+            />
+          </a>
+        ) : <p className="message-content whitespace-pre-wrap leading-[1.42]">
           {contentParts.map((contentPart, index) => (
             contentPart.toLocaleLowerCase('vi') === '@closefriend' ? (
               <span
@@ -118,7 +127,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               </span>
             ) : contentPart
           ))}
-        </p>
+        </p>}
 
         {/* Nút Reply — hiện khi hover */}
         {onReply && (

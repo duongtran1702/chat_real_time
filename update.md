@@ -507,6 +507,29 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - `client/src/App.tsx`
 - `client/src/index.css`
 
+## Gửi ảnh trong phòng chat và lưu trên Cloudinary
+
+**Ngày cập nhật**: 18/08/2026
+
+- Thêm nút chọn ảnh ngay cạnh ô nhập tin nhắn, có trạng thái đang tải và hoạt động trên cả desktop lẫn mobile.
+- Chỉ nhận ảnh PNG, JPG/JPEG hợp lệ, dung lượng tối đa 5 MB và kích thước tối đa 4096 × 4096 pixel.
+- Server kiểm tra người gửi thuộc phòng chat trước khi tải ảnh lên Cloudinary.
+- Ảnh tin nhắn được lưu riêng trong `chat-realtime/messages/{conversationId}` và mỗi ảnh có mã duy nhất để không ghi đè lên nhau.
+- Sau khi tải thành công, Server lưu tin nhắn loại `IMAGE` vào database và phát realtime cho các thành viên trong phòng.
+- Ảnh được hiển thị gọn trong bong bóng chat, có thể bấm để mở ảnh đầy đủ ở tab mới và vẫn hỗ trợ reply.
+
+### Cấu hình môi trường cần có
+
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+
+### Kết quả kiểm tra
+
+- Client TypeScript biên dịch thành công và lint sạch.
+- Vite tạo bản dựng production thành công trong thư mục kiểm tra độc lập.
+- Toàn bộ test backend thành công, bao gồm test lưu và phát realtime tin nhắn ảnh.
+
 ### Kết quả kiểm tra
 
 - Client lint sạch và TypeScript biên dịch thành công.

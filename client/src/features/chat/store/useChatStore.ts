@@ -11,6 +11,7 @@ export interface RepliedMessageSummary {
     id: string;
     senderId: string;
     content: string;
+    type?: 'TEXT' | 'IMAGE' | 'SYSTEM';
 }
 
 export interface Conversation {

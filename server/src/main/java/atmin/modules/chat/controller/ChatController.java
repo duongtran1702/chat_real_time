@@ -6,6 +6,7 @@ import atmin.modules.chat.dto.MessageResponse;
 import atmin.modules.chat.entity.Message;
 import atmin.modules.chat.repository.ConversationRepository;
 import atmin.modules.chat.repository.MessageRepository;
+import atmin.modules.media.service.MediaUploadService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
@@ -14,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/chat")
@@ -23,6 +25,7 @@ public class ChatController {
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final atmin.modules.chat.service.ChatService chatService;
+    private final MediaUploadService mediaUploadService;
 
     @GetMapping("/conversations")
     public ResponseEntity<ApiResponse<List<ConversationResponse>>> getMyConversations(
@@ -67,5 +70,26 @@ public class ChatController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
         }
+    }
+
+    @PostMapping(value = "/conversations/{conversationId}/images", consumes = "multipart/form-data")
+    public ResponseEntity<ApiResponse<MessageResponse>> sendImage(
+            @PathVariable String conversationId,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(value = "clientMessageId", required = false) String clientMessageId,
+            @RequestParam(value = "replyToMessageId", required = false) String replyToMessageId,
+            @AuthenticationPrincipal String userId) {
+        if (!conversationRepository.existsByIdAndParticipants_Id(conversationId, userId)) {
+            throw new IllegalArgumentException("Bạn không có quyền gửi ảnh vào phòng chat này");
+        }
+
+        String safeClientMessageId = clientMessageId == null || clientMessageId.isBlank()
+                ? UUID.randomUUID().toString()
+                : clientMessageId;
+        String imageUrl = mediaUploadService.uploadChatImage(conversationId, userId, file);
+        MessageResponse response = chatService.processImageMessage(
+                conversationId, imageUrl, safeClientMessageId, replyToMessageId, userId
+        );
+        return ResponseEntity.ok(ApiResponse.success("Gửi ảnh thành công", response));
     }
 }

@@ -5,12 +5,13 @@ import { useTypingIndicator } from '../hooks/useTypingIndicator';
 import { MessageItem } from './MessageItem';
 import { TypingIndicator } from './TypingIndicator';
 import { ReplyPreview } from './ReplyPreview';
-import { Bot, ChevronLeft, Send, User as UserIcon } from 'lucide-react';
+import { Bot, ChevronLeft, ImagePlus, LoaderCircle, Send, User as UserIcon } from 'lucide-react';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { UserAvatar } from './UserAvatar';
 import { MentionSuggestions } from './MentionSuggestions';
 import { useBotMention } from '../hooks/useBotMention';
 import type { Message } from '../store/useChatStore';
+import toast from 'react-hot-toast';
 
 interface ChatBoxProps {
   presenceMap: Record<string, { online: boolean }>;
@@ -27,7 +28,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ presenceMap }) => {
     ? presenceMap[otherParticipant.id]?.online ?? otherParticipant.online
     : false;
   
-  const { messages, sendMessage, isConnected, stompClient } = useChatWebSocket({
+  const { messages, sendMessage, sendImage, isConnected, stompClient } = useChatWebSocket({
     token,
     conversationId: activeConversationId,
     userId: currentUserId
@@ -40,9 +41,11 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ presenceMap }) => {
   });
   
   const [inputText, setInputText] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const {
     handleInputChange: botHandleInputChange,
     handleInputKeyDown,
@@ -83,6 +86,30 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ presenceMap }) => {
     setReplyingTo(message);
     inputRef.current?.focus();
   }, [setReplyingTo]);
+
+  const handleImageSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      toast.error('Chỉ chấp nhận ảnh PNG, JPG hoặc JPEG');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Ảnh không được vượt quá 5 MB');
+      return;
+    }
+
+    const replyPayload = replyingTo
+      ? { id: replyingTo.id, senderId: replyingTo.senderId, content: replyingTo.content }
+      : null;
+    setIsUploadingImage(true);
+    try {
+      if (await sendImage(file, replyPayload)) clearReplyingTo();
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const handleScrollToMessage = useCallback((messageId: string) => {
     const element = document.getElementById(`msg-${messageId}`);
@@ -205,6 +232,26 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ presenceMap }) => {
             aria-label="Thêm @CloseFriend vào tin nhắn"
           >
             <Bot size={20} aria-hidden="true" />
+          </button>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/png,image/jpeg"
+            className="hidden"
+            onChange={handleImageSelected}
+            aria-label="Chọn ảnh để gửi"
+          />
+          <button
+            type="button"
+            onClick={() => imageInputRef.current?.click()}
+            disabled={!isConnected || isUploadingImage}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#0066ff] transition-all hover:bg-[#0066ff]/[0.06] disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-10"
+            title="Gửi ảnh"
+            aria-label="Gửi ảnh"
+          >
+            {isUploadingImage
+              ? <LoaderCircle size={20} className="animate-spin" aria-hidden="true" />
+              : <ImagePlus size={20} aria-hidden="true" />}
           </button>
           <input
             ref={inputRef}

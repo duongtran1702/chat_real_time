@@ -5,4 +5,6 @@ import org.springframework.web.multipart.MultipartFile;
 public interface MediaUploadService {
 
     String uploadAvatar(String userId, MultipartFile file);
+
+    String uploadChatImage(String conversationId, String userId, MultipartFile file);
 }

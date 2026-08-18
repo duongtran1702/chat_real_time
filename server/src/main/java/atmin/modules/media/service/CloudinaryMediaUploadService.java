@@ -23,6 +23,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,6 +35,7 @@ public class CloudinaryMediaUploadService implements MediaUploadService {
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("image/jpeg", "image/png");
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png");
     private static final String AVATAR_FOLDER = "chat-realtime/avatars";
+    private static final String CHAT_IMAGE_FOLDER = "chat-realtime/messages";
 
     private final RestClient.Builder restClientBuilder;
     private final CloudinaryProperties properties;
@@ -62,6 +64,33 @@ public class CloudinaryMediaUploadService implements MediaUploadService {
         } catch (Exception exception) {
             throw new CloudStorageException(
                     "Dịch vụ lưu ảnh tạm thời không khả dụng. Vui lòng thử lại sau",
+                    exception
+            );
+        }
+    }
+
+    @Override
+    public String uploadChatImage(String conversationId, String userId, MultipartFile file) {
+        validateImage(file);
+        validateConfiguration();
+
+        long timestamp = Instant.now().getEpochSecond();
+        Map<String, String> signedParameters = new TreeMap<>();
+        signedParameters.put("folder", CHAT_IMAGE_FOLDER + "/" + conversationId);
+        signedParameters.put("public_id", userId + "-" + UUID.randomUUID());
+        signedParameters.put("timestamp", Long.toString(timestamp));
+
+        try {
+            CloudinaryUploadResponse response = uploadFile(file, signedParameters);
+            if (response == null || response.secureUrl() == null || response.secureUrl().isBlank()) {
+                throw new CloudStorageException("Cloudinary không trả về đường dẫn ảnh hợp lệ");
+            }
+            return response.secureUrl();
+        } catch (CloudStorageException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new CloudStorageException(
+                    "Không thể lưu ảnh tin nhắn. Vui lòng thử lại sau",
                     exception
             );
         }
@@ -122,10 +151,10 @@ public class CloudinaryMediaUploadService implements MediaUploadService {
 
     private void validateImage(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Vui lòng chọn một ảnh đại diện");
+            throw new IllegalArgumentException("Vui lòng chọn một ảnh");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("Ảnh đại diện không được vượt quá 5 MB");
+            throw new IllegalArgumentException("Ảnh không được vượt quá 5 MB");
         }
 
         String contentType = file.getContentType();
