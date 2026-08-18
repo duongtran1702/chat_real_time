@@ -48,9 +48,11 @@ public class ChatSubscriptionSecurityConfig implements WebSocketMessageBrokerCon
         if (destination != null && destination.startsWith("/topic/conversation/")) {
             String conversationId = destination.replace("/topic/conversation/", "");
             
-            // Xử lý loại trừ: nếu là topic read receipt thì lấy phần ID gốc
+            // Xử lý loại trừ: nếu là topic read receipt hoặc typing thì lấy phần ID gốc
             if (conversationId.endsWith("/read")) {
                 conversationId = conversationId.replace("/read", "");
+            } else if (conversationId.endsWith("/typing")) {
+                conversationId = conversationId.replace("/typing", "");
             }
 
             // Gọi repo để kiểm tra xem user này có nằm trong conversation này không.

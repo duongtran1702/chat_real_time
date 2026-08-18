@@ -17,7 +17,29 @@ public class MessageResponse {
     private Message.MessageStatus status;
     private Message.MessageType type;
     private LocalDateTime createdAt;
-    
+    private RepliedMessageSummary repliedMessage;
+
+    @Data
+    @Builder
+    public static class RepliedMessageSummary {
+        private String id;
+        private String senderId;
+        private String content;
+
+        public static RepliedMessageSummary fromEntity(Message message) {
+            if (message == null) return null;
+            String truncatedContent = message.getContent();
+            if (truncatedContent != null && truncatedContent.length() > 100) {
+                truncatedContent = truncatedContent.substring(0, 100) + "…";
+            }
+            return RepliedMessageSummary.builder()
+                    .id(message.getId())
+                    .senderId(message.getSenderId())
+                    .content(truncatedContent)
+                    .build();
+        }
+    }
+
     public static MessageResponse fromEntity(Message message) {
         return MessageResponse.builder()
                 .id(message.getId())
@@ -28,6 +50,7 @@ public class MessageResponse {
                 .status(message.getStatus())
                 .type(message.getType())
                 .createdAt(message.getCreatedAt())
+                .repliedMessage(RepliedMessageSummary.fromEntity(message.getReplyToMessage()))
                 .build();
     }
 }

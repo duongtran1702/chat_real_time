@@ -1,6 +1,128 @@
 # Nhật Ký Cập Nhật - Dự Án Chat Real-Time AI (@CloseFriend)
 
-**Ngày cập nhật**: 17/08/2026
+**Ngày cập nhật**: 18/08/2026
+
+---
+
+## Cập nhật 18/08/2026 — Tính năng mới: Typing Indicator + Reply Message
+
+### Tổng quan
+Thêm 2 tính năng UX quan trọng cho CloseFriend Chat:
+1. **Typing Indicator** — hiển thị "Tên đang nhập..." real-time khi người khác đang gõ tin nhắn.
+2. **Reply Message** — trả lời (reply) một tin nhắn cụ thể, hiển thị quote block và scroll tới tin gốc.
+
+### Chi tiết thay đổi
+
+#### Feature 1: Typing Indicator
+
+**Server:**
+- [`WebSocketChatController.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/controller/WebSocketChatController.java) — Thêm endpoint `@MessageMapping("/chat.typing")`. Nhận payload `{ conversationId }`, kiểm tra quyền thành viên, lấy fullName từ DB và broadcast tới `/topic/conversation/{id}/typing`. Fire-and-forget, không lưu DB.
+- [`ChatSubscriptionSecurityConfig.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/core/security/ChatSubscriptionSecurityConfig.java) — Cho phép subscribe vào `/topic/conversation/{id}/typing` (strip `/typing` suffix khi kiểm tra quyền, cùng logic với `/read`).
+
+**Client:**
+- [NEW] [`useTypingIndicator.ts`](file:///d:/ChatRealTime/client/src/features/chat/hooks/useTypingIndicator.ts) — Hook quản lý gửi (debounce 500ms + throttle 2s) và nhận typing events. Tự ẩn sau 3s, bỏ qua typing của chính mình, cleanup khi chuyển conversation.
+- [NEW] [`TypingIndicator.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/TypingIndicator.tsx) — Component hiển thị "Tên đang nhập" + 3 chấm bounce animation. Hỗ trợ hiển thị 1, 2 hoặc nhiều người đồng thời.
+- [`ChatBox.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/ChatBox.tsx) — Tích hợp `useTypingIndicator`, gọi `emitTyping()` khi user gõ phím, render `<TypingIndicator>` phía trên `messagesEndRef`.
+- [`useChatWebSocket.ts`](file:///d:/ChatRealTime/client/src/features/chat/hooks/useChatWebSocket.ts) — Expose `stompClient` để hook typing dùng chung kết nối.
+- [`index.css`](file:///d:/ChatRealTime/client/src/index.css) — Thêm CSS cho `.typing-indicator-*`, keyframes `typingBounce`.
+
+#### Feature 2: Reply Message
+
+**Server:**
+- [`Message.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/entity/Message.java) — Thêm `@ManyToOne` self-referencing field `replyToMessage` → cột `reply_to_message_id` (nullable) trong bảng `messages`.
+- [`MessageRequest.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/dto/MessageRequest.java) — Thêm field optional `replyToMessageId`.
+- [`MessageResponse.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/dto/MessageResponse.java) — Thêm nested DTO `RepliedMessageSummary` (id, senderId, content cắt ngắn 100 ký tự). Cập nhật `fromEntity()`.
+- [`ChatServiceImpl.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/service/impl/ChatServiceImpl.java) — Khi có `replyToMessageId`: tìm message gốc, validate cùng conversation (chống reply xuyên phòng), gán vào entity trước khi save.
+
+**Client:**
+- [`useChatStore.ts`](file:///d:/ChatRealTime/client/src/features/chat/store/useChatStore.ts) — Thêm interface `RepliedMessageSummary`, mở rộng `Message` với field `repliedMessage`. Thêm state `replyingTo` + actions `setReplyingTo()`, `clearReplyingTo()`. Tự clear reply khi chuyển conversation.
+- [`useChatWebSocket.ts`](file:///d:/ChatRealTime/client/src/features/chat/hooks/useChatWebSocket.ts) — `sendMessage()` nhận thêm optional `replyTo` object. Optimistic message mang `repliedMessage` snapshot. Payload STOMP gửi kèm `replyToMessageId`.
+- [NEW] [`ReplyPreview.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/ReplyPreview.tsx) — Thanh preview trên input khi đang reply, viền accent gradient bên trái, tên sender + nội dung cắt ngắn, nút X hủy, animation slide-down.
+- [`MessageItem.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/MessageItem.tsx) — Thêm quote block render khi có `repliedMessage` (viền trái xanh, nền nhạt, click scroll tới tin gốc). Nút reply icon xuất hiện khi hover ở bên cạnh message bubble. Hỗ trợ hiển thị tên sender từ participants list.
+- [`ChatBox.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/ChatBox.tsx) — Tích hợp toàn bộ reply flow: lấy `replyingTo` từ store, render `<ReplyPreview>`, truyền `onReply`/`onScrollToMessage` xuống `<MessageItem>`, gửi `replyPayload` khi submit.
+- [`index.css`](file:///d:/ChatRealTime/client/src/index.css) — Thêm CSS cho `.reply-preview-*`, `.reply-quote-*`, `.reply-action-*`, `.message-highlight-flash`, các keyframes `replySlideDown` và `highlightFlash`.
+
+### Kết quả kiểm tra
+- ✅ TypeScript type check: `tsc --noEmit` pass (exit code 0)
+- ✅ Server build: `gradlew build -x test` — BUILD SUCCESSFUL
+
+---
+
+## Cập nhật 18/08/2026 — Nâng cấp UX/UI toàn diện: Modern Glass Messenger
+
+### Tổng quan
+Nâng cấp giao diện từ phong cách "Messenger clone cơ bản" lên **Modern Glass Messenger** — glassmorphism, gradient, micro-animations — mà **không thay đổi bất kỳ logic/behavior nào**.
+
+### Các file đã thay đổi
+
+#### 1. `client/src/index.css` — Design System hoàn chỉnh
+- Thêm CSS custom properties (design tokens): bảng màu, surface, border, shadow, gradient, radius
+- Thêm glass effect utilities: `.glass`, `.glass-elevated`, `.glass-subtle`
+- Thêm gradient utilities: `.border-gradient-b`, `.border-gradient-r`, `.text-gradient`
+- Thêm `.chat-bg-pattern` (dot pattern cho vùng tin nhắn)
+- Thêm `.login-bg` (animated gradient background cho trang Login)
+- Thêm `.online-dot` (pulse animation cho trạng thái online)
+- Thêm animations mới: `float`, `fadeInUp`, `scaleIn`, `gradientShift`, `shimmer`, `blobFloat1/2`, `pulseOnline`
+- Cải thiện scrollbar styling
+
+#### 2. `client/src/App.css` — **ĐÃ XÓA**
+- File chứa CSS template Vite (`.hero`, `.counter`, `#center`...) hoàn toàn không được sử dụng
+
+#### 3. `client/src/features/auth/components/Login.tsx`
+- Nền: animated gradient (`login-bg`) với floating blobs decorative
+- Card: glass effect (`bg-white/85 backdrop-blur-xl border-white/30`)
+- Input: thêm placeholder text, focus glow effect (`ring-4 + shadow`)
+- Button: gradient accent (`from-[#0066ff] to-[#5c7cfa]`) + shadow glow
+
+#### 4. `client/src/features/chat/components/ConversationList.tsx`
+- Tiêu đề "Đoạn chat": gradient text effect (`.text-gradient`)
+- Search bar: glass effect (`bg-white/50 backdrop-blur-sm`)
+- Conversation items: hover `shadow-sm` + `active:scale-[0.99]`, active state có gradient accent bar bên phải
+- Online dot: pulse animation (`.online-dot`)
+- Empty state: icon `MessageCircle` + text tinh tế
+
+#### 5. `client/src/features/chat/components/ChatBox.tsx`
+- Header: `glass-elevated` backdrop-blur, border gradient nhẹ
+- Message area: dot pattern background (`chat-bg-pattern`)
+- Input area: `glass-elevated`, border gradient, send button gradient + shadow khi có text
+- Status text: đổi màu theo trạng thái (amber/emerald/slate)
+- Empty state: gradient icon background + `animate-fade-in-up`
+
+#### 6. `client/src/features/chat/components/MessageItem.tsx`
+- Tin nhắn gửi đi: gradient xanh (`from-[#0066ff] to-[#4d7cff]`) + shadow tint
+- Tin nhắn bot: gradient tím nhạt + border indigo tinh tế
+- Tin nhắn đối phương: nền trắng + shadow + border siêu nhẹ
+- Timestamp hover: `backdrop-blur-sm` + `bg-white/95`
+- Animation: `animate-fade-in-up` thay vì `animate-slide-up`
+
+#### 7. `client/src/App.tsx`
+- Nền app: gradient (`from-slate-100 via-blue-50/30 to-indigo-50/20`)
+- Sidebar: `glass-subtle`, footer `glass-elevated`
+- Border: gradient nhẹ thay vì solid `#e5e7eb`
+- Empty state: `chat-bg-pattern` + `.text-gradient`
+- Camera icon: gradient (`from-[#0066ff] to-[#5c7cfa]`)
+
+#### 8. `client/src/features/chat/components/BotAvatar.tsx`
+- Gradient mở rộng: thêm tím `#7048e8`
+- Shadow: `shadow-md shadow-blue-500/20`
+- Hiệu ứng: `animate-pulse-glow`
+
+#### 9. `client/src/features/chat/components/MentionSuggestions.tsx`
+- Glass dropdown: `bg-white/90 backdrop-blur-xl`
+- Bo tròn: `rounded-2xl`
+- Animation: `animate-scale-in`
+- Hover: shadow + scale
+
+#### 10. `client/src/features/profile/components/ProfileModal.tsx`
+- Backdrop: `backdrop-blur-md` (mạnh hơn)
+- Card: `bg-white/95 backdrop-blur-xl border-white/50`
+- Animation: `animate-scale-in` khi mở
+- Button gradient nhất quán
+- Focus glow cho input
+
+---
+
+## Cập nhật 17/08/2026
 
 ## Tóm tắt những thay đổi
 

@@ -25,4 +25,7 @@ public class MessageRequest {
             message = "Mã tin nhắn phía người gửi không hợp lệ"
     )
     private String clientMessageId;
+
+    // Optional: ID tin nhắn gốc khi reply
+    private String replyToMessageId;
 }

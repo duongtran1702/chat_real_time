@@ -48,6 +48,14 @@ public class ChatServiceImpl implements ChatService {
         message.setContent(request.getContent().trim());
         message.setStatus(Message.MessageStatus.SENT);
         message.setType(Message.MessageType.TEXT);
+
+        // Xử lý reply: tìm tin nhắn gốc và validate cùng conversation
+        if (request.getReplyToMessageId() != null && !request.getReplyToMessageId().isBlank()) {
+            messageRepository.findById(request.getReplyToMessageId())
+                    .filter(original -> original.getConversation().getId().equals(conversation.getId()))
+                    .ifPresent(message::setReplyToMessage);
+        }
+
         messageRepository.save(message);
 
         MessageResponse response = MessageResponse.fromEntity(message);

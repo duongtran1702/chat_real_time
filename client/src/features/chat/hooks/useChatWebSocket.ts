@@ -149,7 +149,7 @@ export function useChatWebSocket({ token, conversationId, userId, onProfileUpdat
     };
   }, [subscribeToConversation, token, userId]);
 
-  const sendMessage = useCallback((content: string) => {
+  const sendMessage = useCallback((content: string, replyTo?: { id: string; senderId: string; content: string } | null) => {
     if (!clientRef.current?.connected || !conversationId || !userId) {
       toast.error('Mất kết nối. Vui lòng chờ kết nối lại rồi gửi tin nhắn.');
       return false;
@@ -165,15 +165,21 @@ export function useChatWebSocket({ token, conversationId, userId, onProfileUpdat
       status: 'SENT',
       type: 'TEXT',
       createdAt: new Date().toISOString(),
+      repliedMessage: replyTo ?? null,
     };
     setMessages((current) => [...current, temporaryMessage]);
 
+    const payload: Record<string, string> = { content, conversationId, clientMessageId };
+    if (replyTo?.id) {
+      payload.replyToMessageId = replyTo.id;
+    }
+
     clientRef.current.publish({
       destination: '/app/chat.sendMessage',
-      body: JSON.stringify({ content, conversationId, clientMessageId }),
+      body: JSON.stringify(payload),
     });
     return true;
   }, [conversationId, userId]);
 
-  return { messages, presenceMap, sendMessage, isConnected };
+  return { messages, presenceMap, sendMessage, isConnected, stompClient: clientRef.current };
 }

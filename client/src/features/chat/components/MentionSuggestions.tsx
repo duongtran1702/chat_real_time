@@ -11,7 +11,7 @@ export function MentionSuggestions({ isOpen, onSelect }: MentionSuggestionsProps
 
   return (
     <div
-      className="absolute bottom-[calc(100%+.5rem)] left-0 z-30 w-[min(19rem,calc(100vw-1.25rem))] overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-[0_12px_28px_rgba(0,0,0,0.16)]"
+      className="absolute bottom-[calc(100%+.5rem)] left-0 z-30 w-[min(19rem,calc(100vw-1.25rem))] overflow-hidden rounded-2xl border border-white/60 bg-white/90 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.12)] backdrop-blur-xl animate-scale-in"
       role="listbox"
       aria-label="Gợi ý nhắc đến"
     >
@@ -22,7 +22,7 @@ export function MentionSuggestions({ isOpen, onSelect }: MentionSuggestionsProps
         aria-selected="true"
         onMouseDown={(event) => event.preventDefault()}
         onClick={onSelect}
-        className="flex w-full items-center gap-3 rounded-lg bg-[#eaf3ff] px-2.5 py-2 text-left transition hover:bg-[#dcecff]"
+        className="flex w-full items-center gap-3 rounded-xl bg-[#0066ff]/[0.06] px-2.5 py-2 text-left transition-all duration-200 hover:bg-[#0066ff]/[0.10] hover:shadow-sm active:scale-[0.99]"
       >
         <BotAvatar className="h-9 w-9" />
         <span className="min-w-0 flex-1">

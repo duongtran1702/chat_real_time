@@ -7,6 +7,12 @@ export interface User {
     online: boolean;
 }
 
+export interface RepliedMessageSummary {
+    id: string;
+    senderId: string;
+    content: string;
+}
+
 export interface Conversation {
     id: string;
     group: boolean;
@@ -22,20 +28,25 @@ export interface Message {
     status: 'SENT' | 'DELIVERED' | 'READ';
     type: 'TEXT' | 'IMAGE' | 'SYSTEM';
     createdAt: string;
+    repliedMessage?: RepliedMessageSummary | null;
 }
 
 interface ChatState {
     activeConversationId: string | null;
     conversations: Conversation[];
+    replyingTo: Message | null;
     setActiveConversationId: (id: string | null) => void;
     setConversations: (conversations: Conversation[]) => void;
     updateParticipantProfile: (userId: string, profile: Pick<User, 'fullName' | 'avatarUrl'>) => void;
+    setReplyingTo: (message: Message | null) => void;
+    clearReplyingTo: () => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
     activeConversationId: null,
     conversations: [],
-    setActiveConversationId: (id) => set({ activeConversationId: id }),
+    replyingTo: null,
+    setActiveConversationId: (id) => set({ activeConversationId: id, replyingTo: null }),
     setConversations: (conversations) => set((state) => ({
         conversations,
         activeConversationId: conversations.some(({ id }) => id === state.activeConversationId)
@@ -50,4 +61,6 @@ export const useChatStore = create<ChatState>((set) => ({
             )),
         })),
     })),
+    setReplyingTo: (message) => set({ replyingTo: message }),
+    clearReplyingTo: () => set({ replyingTo: null }),
 }));

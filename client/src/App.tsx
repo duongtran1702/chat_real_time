@@ -52,11 +52,11 @@ function App() {
   }
 
   return (
-    <main className="app-viewport relative flex w-full max-w-[100vw] overflow-hidden bg-white font-sans antialiased">
+    <main className="app-viewport relative flex w-full max-w-[100vw] overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50/30 to-indigo-50/20 font-sans antialiased">
       <Toaster position="top-center" toastOptions={{ duration: 3500 }} />
       
       {/* Sidebar - Conversation List with Logout */}
-      <aside className={`z-10 w-full flex-col border-r border-[#e5e7eb] bg-white transition-all duration-200 md:w-[340px] md:shrink-0 lg:w-[360px] ${activeConversationId ? 'hidden md:flex' : 'flex'}`}>
+      <aside className={`z-10 w-full flex-col border-r border-black/[0.04] glass-subtle transition-all duration-200 md:w-[340px] md:shrink-0 lg:w-[360px] ${activeConversationId ? 'hidden md:flex' : 'flex'}`}>
           <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
             <ConversationList 
               conversations={conversations} 
@@ -66,7 +66,7 @@ function App() {
               currentUserId={currentUser.id}
             />
           </div>
-          <div className="flex items-center justify-between border-t border-[#e5e7eb] bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          <div className="glass-elevated flex items-center justify-between border-t border-black/[0.04] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
               <div className="flex min-w-0 items-center gap-3">
                   <button
                     type="button"
@@ -76,13 +76,13 @@ function App() {
                     aria-label="Chỉnh sửa hồ sơ"
                   >
                     <UserAvatar user={currentUser} className="h-9 w-9" />
-                    <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-[#0084ff] text-white">
+                    <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-[#0066ff] to-[#5c7cfa] text-white shadow-sm">
                       <Camera size={8} strokeWidth={3} />
                     </span>
                   </button>
                   <div className="flex flex-col">
                      <span className="text-sm font-bold text-gray-800 truncate max-w-[120px]">{currentUser.fullName}</span>
-                     <span className="text-xs font-medium text-[#31a24c]">Đang trực tuyến</span>
+                     <span className="text-xs font-medium text-emerald-500">Đang trực tuyến</span>
                   </div>
               </div>
               <button 
@@ -96,7 +96,7 @@ function App() {
                       }
                   }} 
                   title="Đăng xuất"
-                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all duration-200 active:scale-95"
               >
                   <LogOut size={18} />
               </button>
@@ -109,12 +109,12 @@ function App() {
           <ChatBox presenceMap={presenceMap} />
         </section>
       ) : (
-        <div className="relative hidden flex-1 items-center justify-center bg-white md:flex">
+        <div className="relative hidden flex-1 items-center justify-center chat-bg-pattern md:flex">
           <div className="text-center animate-slide-up">
             <BotAvatar className="mx-auto mb-6 h-24 w-24 animate-float" />
-            <h2 className="text-3xl font-bold text-slate-950">CloseFriend Chat</h2>
-            <p className="mt-3 text-lg font-light text-gray-500">Chọn một cuộc trò chuyện để bắt đầu.</p>
-            <p className="mt-2 text-sm font-medium text-[#0084ff]">Robot CloseFriend luôn sẵn sàng khi bạn cần.</p>
+            <h2 className="text-3xl font-bold text-slate-900">CloseFriend Chat</h2>
+            <p className="mt-3 text-lg font-light text-gray-400">Chọn một cuộc trò chuyện để bắt đầu.</p>
+            <p className="mt-2 text-sm font-medium text-gradient">Robot CloseFriend luôn sẵn sàng khi bạn cần.</p>
           </div>
         </div>
       )}

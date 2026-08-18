@@ -41,6 +41,10 @@ public class Message extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private MessageType type = MessageType.TEXT;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reply_to_message_id")
+    private Message replyToMessage;
     
     public enum MessageStatus {
         SENT, DELIVERED, READ
