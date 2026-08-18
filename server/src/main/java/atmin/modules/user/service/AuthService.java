@@ -2,6 +2,7 @@ package atmin.modules.user.service;
 
 import atmin.core.security.jwt.JwtProvider;
 import atmin.modules.user.dto.LoginRequest;
+import atmin.modules.user.dto.RegisterRequest;
 import atmin.modules.user.dto.LoginResponse;
 import atmin.modules.user.entity.User;
 import atmin.modules.user.entity.UserStatus;
@@ -16,6 +17,25 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
+
+    public void register(RegisterRequest request) {
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("Mật khẩu xác nhận không khớp");
+        }
+
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new IllegalArgumentException("Tài khoản đã tồn tại");
+        }
+
+        User user = new User();
+        user.setId(java.util.UUID.randomUUID().toString());
+        user.setUsername(request.getUsername());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setFullName(request.getUsername());
+        user.setStatus(UserStatus.ACTIVE);
+
+        userRepository.save(user);
+    }
 
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByUsername(request.getUsername())

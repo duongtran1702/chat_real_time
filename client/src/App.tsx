@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BotAvatar, ChatBox, ConversationList, UserAvatar, useChatStore, useChatWebSocket, type ProfileUpdate } from './features/chat';
 import { Login } from './features/auth/components/Login';
+import { Register } from './features/auth/components/Register';
 import { useAuthStore } from './features/auth/store/useAuthStore';
 import { Camera, LogOut } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
@@ -13,6 +14,7 @@ function App() {
   const { conversations, activeConversationId, setActiveConversationId, setConversations, updateParticipantProfile } = useChatStore();
   const { token, currentUser, logout, updateUser, updateProfile } = useAuthStore();
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
 
   const handleProfileUpdated = useCallback((update: ProfileUpdate) => {
     const profile = { fullName: update.fullName, avatarUrl: update.avatarUrl };
@@ -46,7 +48,11 @@ function App() {
      return (
         <>
           <Toaster position="top-right" />
-          <Login />
+          {isRegistering ? (
+            <Register onSwitchToLogin={() => setIsRegistering(false)} />
+          ) : (
+            <Login onSwitchToRegister={() => setIsRegistering(true)} />
+          )}
         </>
      );
   }
@@ -64,6 +70,12 @@ function App() {
               onSelect={setActiveConversationId}
               presenceMap={presenceMap}
               currentUserId={currentUser.id}
+              onNewConversation={() => {
+                // Fetch lại danh sách conversation
+                api.get('/chat/conversations').then((res) => {
+                  setConversations(res.data?.data ?? []);
+                }).catch(console.error);
+              }}
             />
           </div>
           <div className="glass-elevated flex items-center justify-between border-t border-black/[0.04] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
@@ -112,9 +124,9 @@ function App() {
         <div className="relative hidden flex-1 items-center justify-center chat-bg-pattern md:flex">
           <div className="text-center animate-slide-up">
             <BotAvatar className="mx-auto mb-6 h-24 w-24 animate-float" />
-            <h2 className="text-3xl font-bold text-slate-900">CloseFriend Chat</h2>
+            <h2 className="text-3xl font-bold text-slate-900">Chat Together</h2>
             <p className="mt-3 text-lg font-light text-gray-400">Chọn một cuộc trò chuyện để bắt đầu.</p>
-            <p className="mt-2 text-sm font-medium text-gradient">Robot CloseFriend luôn sẵn sàng khi bạn cần.</p>
+            <p className="mt-2 text-sm font-medium text-gradient">Robot Chat Together luôn sẵn sàng khi bạn cần.</p>
           </div>
         </div>
       )}

@@ -22,6 +22,7 @@ public class ChatController {
 
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
+    private final atmin.modules.chat.service.ChatService chatService;
 
     @GetMapping("/conversations")
     public ResponseEntity<ApiResponse<List<ConversationResponse>>> getMyConversations(
@@ -53,5 +54,18 @@ public class ChatController {
                 .toList();
 
         return ResponseEntity.ok(ApiResponse.success("Lấy lịch sử tin nhắn thành công", messages));
+    }
+
+    @PostMapping("/conversations/user/{targetUserId}")
+    public ResponseEntity<ApiResponse<ConversationResponse>> getOrCreatePrivateConversation(
+            @PathVariable String targetUserId,
+            @AuthenticationPrincipal String currentUserId) {
+        
+        try {
+            ConversationResponse response = chatService.getOrCreatePrivateConversation(currentUserId, targetUserId);
+            return ResponseEntity.ok(ApiResponse.success("Lấy thông tin phòng chat thành công", response));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
+        }
     }
 }

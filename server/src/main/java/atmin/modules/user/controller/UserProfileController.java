@@ -36,6 +36,14 @@ public class UserProfileController {
             @AuthenticationPrincipal String userId,
             @Valid @RequestBody UpdateProfileRequest request) {
         UserProfileResponse response = userProfileService.updateProfile(userId, request);
-        return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin thành công", response));
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tự thành công", response));
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/search")
+    public ResponseEntity<ApiResponse<java.util.List<UserProfileResponse>>> searchUsers(
+            @AuthenticationPrincipal String userId,
+            @RequestParam("username") String username) {
+        java.util.List<UserProfileResponse> users = userProfileService.searchUsers(username, userId);
+        return ResponseEntity.ok(ApiResponse.success("Tìm kiếm thành công", users));
     }
 }

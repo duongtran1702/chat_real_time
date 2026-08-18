@@ -4,7 +4,11 @@ import { useAuthStore } from '../store/useAuthStore';
 import { Bot, Loader2, Lock, Sparkles, User as UserIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export const Login = () => {
+interface LoginProps {
+    onSwitchToRegister?: () => void;
+}
+
+export const Login = ({ onSwitchToRegister }: LoginProps) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -51,8 +55,8 @@ export const Login = () => {
                          <Sparkles size={15} strokeWidth={2.5} />
                        </span>
                     </div>
-                    <h2 className="text-3xl font-extrabold tracking-tight text-slate-900">CloseFriend Chat</h2>
-                    <p className="text-gray-500 mt-2 font-medium">Đăng nhập để kết nối với bạn bè</p>
+                    <h2 className="text-3xl font-extrabold tracking-tight text-slate-900">Chat Together</h2>
+                    <p className="text-gray-500 mt-2 font-medium">Đăng nhập để tiếp tục</p>
                 </div>
 
                 <form onSubmit={handleLogin} autoComplete="off" className="space-y-5 sm:space-y-6">
@@ -100,6 +104,19 @@ export const Login = () => {
                         {loading ? <Loader2 className="animate-spin" size={22} /> : 'Đăng nhập ngay'}
                     </button>
                 </form>
+
+                <div className="mt-6 text-center">
+                    <p className="text-sm text-gray-500 font-medium">
+                        Chưa có tài khoản?{' '}
+                        <button 
+                            onClick={onSwitchToRegister}
+                            type="button" 
+                            className="text-[#0066ff] font-bold hover:underline"
+                        >
+                            Đăng ký ngay
+                        </button>
+                    </p>
+                </div>
             </div>
         </div>
     );

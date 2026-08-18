@@ -60,7 +60,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
   const getRepliedSenderName = () => {
     if (!replied) return '';
-    if (replied.senderId === 'bot_closefriend') return 'CloseFriend AI';
+    if (replied.senderId === 'bot_closefriend') return 'Chat Together AI';
     const participant = participants?.find((p) => p.id === replied.senderId);
     return participant?.fullName ?? 'Người dùng';
   };
@@ -89,7 +89,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       >
         {isBot && (
           <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold tracking-wide text-[#4d6ad9]">
-            <span>CloseFriend AI</span>
+            <span>Chat Together AI</span>
             <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[9px] uppercase text-[#0066ff] shadow-sm">Bot</span>
           </div>
         )}

@@ -4,6 +4,58 @@
 
 ---
 
+## Cập nhật 18/08/2026 — Đổi tên ứng dụng thành "Chat Together"
+
+### Tổng quan
+Cập nhật toàn diện tên nhận diện thương hiệu của ứng dụng từ "CloseFriend Chat" sang "Chat Together" trên cả Client và Server.
+
+### Chi tiết thay đổi
+1. **Giao diện Client:**
+   - Thay đổi các tiêu đề và thẻ text trên ứng dụng (`App.tsx`, `Login.tsx`, `Register.tsx`, `ConversationList.tsx`, `index.html`) thành "Chat Together".
+   - Đổi tên bot AI nhận diện từ "CloseFriend AI" sang "Chat Together AI" (`BotAvatar.tsx`, `ChatBox.tsx`, `MentionSuggestions.tsx`, `MessageItem.tsx`).
+2. **Cú pháp gọi Bot (Client & Server):**
+   - Giữ cú pháp đề cập bot là `@CloseFriend` trên cả Client và Server để người dùng tiếp tục dùng lệnh quen thuộc.
+
+### Kết quả kiểm tra
+- ✅ Ứng dụng đã được thống nhất tên gọi "Chat Together".
+- ✅ TypeScript type check: `tsc --noEmit` pass (exit code 0).
+- ✅ Server build: `gradlew build -x test` — BUILD SUCCESSFUL.
+
+---
+
+## Cập nhật 18/08/2026 — Tính năng Đăng ký tài khoản và Tìm kiếm bạn bè
+
+### Tổng quan
+Hoàn thiện chức năng để người dùng có thể tự đăng ký tài khoản mới và tìm kiếm/kết bạn với người dùng khác thông qua tính năng Search thay vì sử dụng tài khoản demo.
+
+### Chi tiết thay đổi
+
+#### 1. API Đăng ký (Server)
+- Thêm `RegisterRequest` DTO với validation (Tài khoản >= 5 ký tự, Mật khẩu >= 6 ký tự).
+- `AuthService`: Kiểm tra trùng lặp `username`, mật khẩu xác nhận phải khớp. Tạo tài khoản với trạng thái `ACTIVE` mặc định và mã hóa mật khẩu bằng `BCrypt`.
+- `AuthController`: Mở endpoint `POST /api/v1/auth/register`.
+
+#### 2. Tính năng Tìm kiếm bạn bè (Client & Server)
+- **Server:** Bổ sung `findByUsernameContainingIgnoreCase` trong `UserRepository`. Thêm endpoint `GET /api/v1/users/search?username={q}` trong `UserProfileController` giúp tìm kiếm tương đối user (loại bỏ chính mình và user bị khóa).
+- **Client:** Bổ sung thanh Search trong `ConversationList.tsx` với kỹ thuật debounce (500ms) để không spam API. Kết quả tìm kiếm hiển thị dạng danh sách người dùng thay thế cho danh sách phòng chat hiện tại.
+
+#### 3. Tạo phòng chat 1-1 (Server & Client)
+- **Server:** Thêm custom query `findPrivateConversationBetweenUsers` trong `ConversationRepository` để kiểm tra 2 người đã từng chat chưa. Thêm endpoint `POST /api/v1/chat/conversations/user/{targetUserId}` trong `ChatController` để tự động khởi tạo hoặc trả về phòng chat hiện hữu.
+- **Client:** Tích hợp gọi API tạo phòng chat khi user click vào một người trong kết quả tìm kiếm, sau đó refetch danh sách cuộc trò chuyện và tự động select phòng chat vừa được khởi tạo.
+
+#### 4. Giao diện Đăng ký (Client)
+- Tạo component `Register.tsx` sử dụng phong cách Glassmorphism đồng nhất với trang `Login`.
+- Hỗ trợ hiển thị lỗi *inline validation* với text màu đỏ nhạt ngay dưới từng ô input (thay vì chỉ dùng Toast) theo yêu cầu UX khắt khe.
+- Cập nhật `App.tsx` hỗ trợ chuyển đổi mượt mà giữa màn hình Đăng nhập và Đăng ký.
+
+### Kết quả kiểm tra
+- ✅ API validation bắt chính xác các rule: tài khoản >= 5 ký tự, mật khẩu >= 6 ký tự, trùng username.
+- ✅ Client tự động debounce search API, không gây lỗi memory/leak.
+- ✅ TypeScript type check: `tsc --noEmit` pass (exit code 0).
+- ✅ Server build: `gradlew build -x test` — BUILD SUCCESSFUL.
+
+---
+
 ## Cập nhật 18/08/2026 — Tính năng mới: Typing Indicator + Reply Message
 
 ### Tổng quan
@@ -404,6 +456,17 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - Cấu hình `ObjectMapper` tự đăng ký các module chuẩn thay vì tạo bộ chuyển JSON rỗng và chuẩn hóa ngày giờ sang chuỗi ISO-8601 dễ đọc.
 - Bổ sung module JSR-310 để phản hồi 401/403 có `LocalDateTime` được chuyển thành JSON hợp lệ, không còn phát sinh lỗi 500 trong `SecurityConfig`.
 - Thêm kiểm thử hồi quy xác nhận `LocalDateTime` luôn được serialize thành công.
+
+## Gia cố reply, tạo phòng riêng và tìm kiếm người dùng
+
+**Ngày cập nhật**: 18/08/2026
+
+- Giữ thống nhất cú pháp gọi bot `@CloseFriend` trên Client và Server.
+- Trả lỗi rõ ràng khi tin nhắn gốc không tồn tại hoặc thuộc một phòng chat khác, không còn âm thầm bỏ qua reply.
+- Khóa bi quan hai người dùng theo thứ tự ID cố định trước khi tìm hoặc tạo phòng riêng, ngăn hai yêu cầu đồng thời tạo hai phòng 1–1 trùng nhau.
+- Giới hạn tìm kiếm tối đa 20 tài khoản đang hoạt động, loại tài khoản hiện tại ngay tại truy vấn database và sắp xếp theo username.
+- Thay kiểu `any` của kết quả tìm kiếm Client bằng interface `SearchUser` và xử lý lỗi Axios an toàn.
+- Bổ sung kiểm thử hồi quy cho reply xuyên phòng và thứ tự khóa khi tạo phòng riêng.
 
 ## Sửa trạng thái người đang online bị hiển thị ngoại tuyến
 

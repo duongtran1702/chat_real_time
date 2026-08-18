@@ -58,4 +58,26 @@ public class UserProfileServiceImpl implements UserProfileService {
                 )
         );
     }
+
+    @Override
+    public java.util.List<UserProfileResponse> searchUsers(String query, String currentUserId) {
+        if (query == null || query.trim().isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        
+        java.util.List<User> users = userRepository.findByUsernameContainingIgnoreCaseAndStatusAndIdNot(
+                query.trim(),
+                atmin.modules.user.entity.UserStatus.ACTIVE,
+                currentUserId,
+                org.springframework.data.domain.PageRequest.of(
+                        0,
+                        20,
+                        org.springframework.data.domain.Sort.by("username").ascending()
+                )
+        );
+        
+        return users.stream()
+                .map(UserProfileResponse::fromEntity)
+                .toList();
+    }
 }

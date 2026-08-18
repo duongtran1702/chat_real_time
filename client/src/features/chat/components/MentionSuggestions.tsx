@@ -26,7 +26,7 @@ export function MentionSuggestions({ isOpen, onSelect }: MentionSuggestionsProps
       >
         <BotAvatar className="h-9 w-9" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-bold text-slate-800">CloseFriend AI</span>
+          <span className="block truncate text-sm font-bold text-slate-800">Chat Together AI</span>
           <span className="block truncate text-xs text-slate-500">Trợ lý robot trong cuộc trò chuyện</span>
         </span>
         <span className="hidden items-center gap-1 text-[10px] font-semibold text-slate-400 sm:flex">

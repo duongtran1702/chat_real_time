@@ -95,7 +95,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ presenceMap }) => {
 
   const getReplyingSenderName = () => {
     if (!replyingTo) return '';
-    if (replyingTo.senderId === 'bot_closefriend') return 'CloseFriend AI';
+    if (replyingTo.senderId === 'bot_closefriend') return 'Chat Together AI';
     if (replyingTo.senderId === currentUserId) return 'Chính bạn';
     const participant = activeConv?.participants.find(({ id }) => id === replyingTo.senderId);
     return participant?.fullName ?? 'Người dùng';
@@ -146,7 +146,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ presenceMap }) => {
         </div>
         <div className="ml-auto hidden shrink-0 items-center gap-2 rounded-full border border-[#0066ff]/10 bg-[#0066ff]/[0.06] px-3 py-1.5 text-xs font-semibold text-[#0066ff] lg:flex">
           <Bot size={15} aria-hidden="true" />
-          CloseFriend AI
+          Chat Together AI
         </div>
       </header>
 
@@ -201,7 +201,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ presenceMap }) => {
             type="button"
             onClick={insertBotMention}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#0066ff] transition-all duration-200 hover:bg-[#0066ff]/[0.06] active:scale-95 sm:h-10 sm:w-10"
-            title="Gọi CloseFriend AI"
+            title="Gọi Chat Together AI"
             aria-label="Thêm @CloseFriend vào tin nhắn"
           >
             <Bot size={20} aria-hidden="true" />

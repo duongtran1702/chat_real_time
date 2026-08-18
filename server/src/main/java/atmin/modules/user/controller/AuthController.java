@@ -11,6 +11,9 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import atmin.modules.user.dto.RegisterRequest;
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -18,6 +21,17 @@ public class AuthController {
 
     private final AuthService authService;
     private final AuthCookieProperties cookieProperties;
+
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterRequest request) {
+        try {
+            authService.register(request);
+            return ResponseEntity.ok(ApiResponse.success("Đăng ký thành công", null));
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, exception.getMessage()));
+        }
+    }
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@RequestBody LoginRequest request) {

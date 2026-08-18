@@ -9,4 +9,6 @@ public interface UserProfileService {
     UserProfileResponse updateAvatar(String userId, MultipartFile file);
 
     UserProfileResponse updateProfile(String userId, UpdateProfileRequest request);
+
+    java.util.List<UserProfileResponse> searchUsers(String query, String currentUserId);
 }
