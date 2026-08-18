@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+export const AUTH_SESSION_MARKER_KEY = 'hasRefreshSession';
+
 export interface User {
     id: string;
     username: string;
@@ -22,6 +24,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     currentUser: JSON.parse(localStorage.getItem('currentUser') || 'null'),
     setAuth: (token, user) => {
         localStorage.setItem('currentUser', JSON.stringify(user));
+        localStorage.setItem(AUTH_SESSION_MARKER_KEY, 'true');
         set({ token, currentUser: user });
     },
     updateUser: (user) => {
@@ -36,6 +39,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }),
     logout: () => {
         localStorage.removeItem('currentUser');
+        localStorage.removeItem(AUTH_SESSION_MARKER_KEY);
         set({ token: null, currentUser: null });
     },
 }));

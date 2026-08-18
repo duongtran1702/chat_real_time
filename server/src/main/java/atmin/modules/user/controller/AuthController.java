@@ -21,13 +21,17 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@RequestBody LoginRequest request) {
-        LoginResponse response = authService.login(request);
-        
-        ResponseCookie cookie = createRefreshTokenCookie(response.getRefreshToken(), 7 * 24 * 60 * 60);
+        try {
+            LoginResponse response = authService.login(request);
+            ResponseCookie cookie = createRefreshTokenCookie(response.getRefreshToken(), 7 * 24 * 60 * 60);
 
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(ApiResponse.success("Đăng nhập thành công", response));
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                    .body(ApiResponse.success("Đăng nhập thành công", response));
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.status(401)
+                    .body(ApiResponse.error(401, exception.getMessage()));
+        }
     }
 
     @PostMapping("/refresh")

@@ -255,6 +255,16 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - Vẫn hỗ trợ `VITE_SERVER_ORIGIN` khi cần ghi đè và chuẩn hóa dấu `/` cuối để tránh URL bị lặp dấu gạch chéo.
 - Cho phép origin Render tạm trong cấu hình cloud để WebSocket hoạt động trước khi Nhân Hòa xử lý xong DNS.
 
+## Sửa đăng nhập production và gợi ý tài khoản
+
+**Ngày cập nhật**: 18/08/2026
+
+- Chuẩn hóa mọi `JWT_SECRET_KEY` thành khóa SHA-256 đủ 256 bit, không còn yêu cầu chuỗi do Render tạo phải đúng định dạng Base64.
+- Đăng nhập sai trả HTTP 401 với thông báo rõ ràng thay vì bị chuyển thành HTTP 500.
+- Không gọi `/auth/refresh` ở lần mở đầu khi trình duyệt chưa từng có phiên đăng nhập, loại bỏ lỗi 401 gây nhiễu trong Console.
+- Lưu một cờ phiên không nhạy cảm; token và refresh token vẫn không được ghi vào localStorage.
+- Đổi placeholder thành `user123 hoặc atmin123` và `12345678 hoặc atmin123`, đồng thời bật autocomplete đúng chuẩn cho trình quản lý mật khẩu.
+
 ## Sửa trạng thái người đang online bị hiển thị ngoại tuyến
 
 **Ngày cập nhật**: 17/08/2026

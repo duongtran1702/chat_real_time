@@ -2,7 +2,6 @@ package atmin.core.security.jwt;
 
 import atmin.modules.user.entity.User;
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +9,9 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.security.Key;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
 
@@ -19,8 +21,18 @@ public class JwtProvider {
     private final JwtProperties jwtProperties;
 
     private Key signingKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(jwtProperties.getSecretKey());
-        return Keys.hmacShaKeyFor(keyBytes);
+        String configuredSecret = jwtProperties.getSecretKey();
+        if (configuredSecret == null || configuredSecret.isBlank()) {
+            throw new IllegalStateException("JWT_SECRET_KEY chưa được cấu hình");
+        }
+
+        try {
+            byte[] keyBytes = MessageDigest.getInstance("SHA-256")
+                    .digest(configuredSecret.getBytes(StandardCharsets.UTF_8));
+            return Keys.hmacShaKeyFor(keyBytes);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("Môi trường Java không hỗ trợ SHA-256", exception);
+        }
     }
 
     public String generateAccessToken(User user) {

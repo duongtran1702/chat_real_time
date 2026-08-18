@@ -59,8 +59,9 @@ export const Login = () => {
                                 type="text"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
+                                autoComplete="username"
                                 className="w-full rounded-xl border border-gray-300 bg-white py-3.5 pl-11 pr-4 font-medium outline-none transition placeholder-gray-400 focus:border-[#0084ff] focus:ring-2 focus:ring-[#0084ff]/20"
-                                placeholder="Nhập username (vd: user123)"
+                                placeholder="user123 hoặc atmin123"
                             />
                         </div>
                     </div>
@@ -75,8 +76,9 @@ export const Login = () => {
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
+                                autoComplete="current-password"
                                 className="w-full rounded-xl border border-gray-300 bg-white py-3.5 pl-11 pr-4 font-medium outline-none transition placeholder-gray-400 focus:border-[#0084ff] focus:ring-2 focus:ring-[#0084ff]/20"
-                                placeholder="Nhập mật khẩu"
+                                placeholder="12345678 hoặc atmin123"
                             />
                         </div>
                     </div>

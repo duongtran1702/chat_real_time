@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../../infra/api';
-import { useAuthStore } from '../store/useAuthStore';
+import { AUTH_SESSION_MARKER_KEY, useAuthStore } from '../store/useAuthStore';
 import { Loader2 } from 'lucide-react';
 
 export const AuthInit: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -31,9 +31,14 @@ export const AuthInit: React.FC<{ children: React.ReactNode }> = ({ children }) 
             }
         };
 
-        if (!token) {
+        const hasRefreshSession = localStorage.getItem(AUTH_SESSION_MARKER_KEY) === 'true';
+
+        if (!token && hasRefreshSession) {
             initializeAuth();
         } else {
+            if (!token) {
+                logout();
+            }
             setIsInitializing(false);
         }
 
