@@ -6,8 +6,10 @@ import { Camera, LogOut } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import { api } from './infra/api';
 import { ProfileModal } from './features/profile';
+import { useVisualViewport } from './hooks/useVisualViewport';
 
 function App() {
+  useVisualViewport();
   const { conversations, activeConversationId, setActiveConversationId, setConversations, updateParticipantProfile } = useChatStore();
   const { token, currentUser, logout, updateUser, updateProfile } = useAuthStore();
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);

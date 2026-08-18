@@ -44,6 +44,12 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ presenceMap }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const keepComposerVisible = () => {
+    window.setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ block: 'end' });
+    }, 150);
+  };
+
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
@@ -150,6 +156,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ presenceMap }) => {
             value={inputText}
             onChange={handleInputChange}
             onKeyDown={handleInputKeyDown}
+            onFocus={keepComposerVisible}
             placeholder="Nhập tin nhắn..."
             maxLength={4000}
             aria-label="Nội dung tin nhắn"

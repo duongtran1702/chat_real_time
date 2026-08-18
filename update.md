@@ -266,6 +266,15 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - Lưu một cờ phiên không nhạy cảm; token và refresh token vẫn không được ghi vào localStorage.
 - Giữ input đăng nhập hoàn toàn sạch: không placeholder, không tài khoản/mật khẩu mẫu và tắt autocomplete để giao diện không làm lộ hoặc gợi ý thông tin đăng nhập.
 
+## Cải thiện thanh nhập khi bàn phím điện thoại mở
+
+**Ngày cập nhật**: 18/08/2026
+
+- Đồng bộ chiều cao ứng dụng với vùng màn hình thực sự còn nhìn thấy bằng Visual Viewport API, giúp thanh nhập luôn nằm phía trên bàn phím ảo.
+- Theo dõi thay đổi kích thước, vị trí viewport và xoay màn hình để bố cục tự co giãn trên Android và iOS.
+- Tự đưa cuối cuộc trò chuyện vào vùng nhìn thấy khi người dùng chạm vào ô nhập.
+- Vẫn giữ khoảng đệm safe-area cho thiết bị có thanh Home hoặc tai thỏ.
+
 ## Sửa trạng thái người đang online bị hiển thị ngoại tuyến
 
 **Ngày cập nhật**: 17/08/2026
