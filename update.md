@@ -236,6 +236,16 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - Cập nhật `.env.example` và `deploy.md` sang Render + Supabase Session pooler IPv4, không cần IPv4 add-on trả phí.
 - Giữ mô hình một Docker container chạy chung React, Spring Boot và WebSocket để người mới không phải tách Netlify.
 
+## Sửa Render Live nhưng trả về Not Found
+
+**Ngày cập nhật**: 18/08/2026
+
+- Xác nhận Render trả header `x-render-routing=no-server`, cho thấy container không còn phục vụ phía sau route dù deploy từng báo Live.
+- Giới hạn Java ở heap 256 MB, Serial GC, metaspace 128 MB, code cache 48 MB và một CPU để vừa gói Render Free 512 MB.
+- Giảm Tomcat còn tối đa 20 request threads và 100 kết nối cho quy mô chat demo.
+- Buộc Docker kiểm tra `dist/index.html` trước khi build và kiểm tra lại `index.html` đã nằm trong Spring Boot JAR; build sẽ thất bại sớm thay vì deploy một ứng dụng thiếu giao diện.
+- Thêm route `/` chuyển tiếp rõ ràng đến `/index.html` để Spring Boot luôn trả giao diện React.
+
 ## Sửa trạng thái người đang online bị hiển thị ngoại tuyến
 
 **Ngày cập nhật**: 17/08/2026
