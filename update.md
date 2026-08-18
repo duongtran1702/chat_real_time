@@ -275,6 +275,14 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - Tự đưa cuối cuộc trò chuyện vào vùng nhìn thấy khi người dùng chạm vào ô nhập.
 - Vẫn giữ khoảng đệm safe-area cho thiết bị có thanh Home hoặc tai thỏ.
 
+## Sửa lỗi phản hồi bảo mật với kiểu ngày giờ Java
+
+**Ngày cập nhật**: 18/08/2026
+
+- Cấu hình `ObjectMapper` tự đăng ký các module chuẩn thay vì tạo bộ chuyển JSON rỗng và chuẩn hóa ngày giờ sang chuỗi ISO-8601 dễ đọc.
+- Bổ sung module JSR-310 để phản hồi 401/403 có `LocalDateTime` được chuyển thành JSON hợp lệ, không còn phát sinh lỗi 500 trong `SecurityConfig`.
+- Thêm kiểm thử hồi quy xác nhận `LocalDateTime` luôn được serialize thành công.
+
 ## Sửa trạng thái người đang online bị hiển thị ngoại tuyến
 
 **Ngày cập nhật**: 17/08/2026
