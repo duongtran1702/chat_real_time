@@ -254,6 +254,7 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - Production tự lấy `window.location.origin`, nên link Render gọi REST/WebSocket trên Render và domain chính thức tự gọi cùng domain sau khi DNS hoạt động.
 - Vẫn hỗ trợ `VITE_SERVER_ORIGIN` khi cần ghi đè và chuẩn hóa dấu `/` cuối để tránh URL bị lặp dấu gạch chéo.
 - Cho phép origin Render tạm trong cấu hình cloud để WebSocket hoạt động trước khi Nhân Hòa xử lý xong DNS.
+- Sửa chính xác hostname Render thành `chat-real-time-ujhj.onrender.com` để bắt tay WebSocket không bị CORS từ chối.
 
 ## Sửa đăng nhập production và gợi ý tài khoản
 

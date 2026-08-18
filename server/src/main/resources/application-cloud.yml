@@ -27,4 +27,4 @@ app:
   frontend:
     allowed-origins:
       - https://chat.atmin.io.vn
-      - https://chat-real-time-uhjj.onrender.com
+      - https://chat-real-time-ujhj.onrender.com
