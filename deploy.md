@@ -16,7 +16,7 @@
 File `client/src/infra/serverUrl.ts` là nguồn cấu hình duy nhất:
 
 - Chạy `npm run dev`: Vite đặt `import.meta.env.DEV=true`, Client dùng `http://localhost:8080`.
-- Chạy `npm run build`: Client dùng domain thật `https://chat.atmin.io.vn`.
+- Chạy `npm run build`: Client tự dùng origin đang mở. Link Render gọi API Render; domain thật gọi API trên domain thật.
 - Nếu cần ghi đè tạm thời, đặt biến `VITE_SERVER_ORIGIN`.
 
 Không sửa trực tiếp `api.ts` hoặc `useChatWebSocket.ts`; cả hai đều đọc từ `serverUrl.ts`.

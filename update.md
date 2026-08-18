@@ -246,6 +246,15 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - Buộc Docker kiểm tra `dist/index.html` trước khi build và kiểm tra lại `index.html` đã nằm trong Spring Boot JAR; build sẽ thất bại sớm thay vì deploy một ứng dụng thiếu giao diện.
 - Thêm route `/` chuyển tiếp rõ ràng đến `/index.html` để Spring Boot luôn trả giao diện React.
 
+## Không phụ thuộc domain production trong mã Client
+
+**Ngày cập nhật**: 18/08/2026
+
+- Loại bỏ địa chỉ `https://chat.atmin.io.vn` bị hardcode trong bản build React.
+- Production tự lấy `window.location.origin`, nên link Render gọi REST/WebSocket trên Render và domain chính thức tự gọi cùng domain sau khi DNS hoạt động.
+- Vẫn hỗ trợ `VITE_SERVER_ORIGIN` khi cần ghi đè và chuẩn hóa dấu `/` cuối để tránh URL bị lặp dấu gạch chéo.
+- Cho phép origin Render tạm trong cấu hình cloud để WebSocket hoạt động trước khi Nhân Hòa xử lý xong DNS.
+
 ## Sửa trạng thái người đang online bị hiển thị ngoại tuyến
 
 **Ngày cập nhật**: 17/08/2026
