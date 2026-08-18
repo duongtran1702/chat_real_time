@@ -48,7 +48,7 @@ export const Login = () => {
                     <p className="text-gray-500 mt-2 font-medium">Đăng nhập để kết nối với bạn bè</p>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-5 sm:space-y-6">
+                <form onSubmit={handleLogin} autoComplete="off" className="space-y-5 sm:space-y-6">
                     <div className="space-y-1">
                         <label className="text-sm font-semibold text-gray-700 pl-1">Tài khoản</label>
                         <div className="relative">
@@ -59,9 +59,10 @@ export const Login = () => {
                                 type="text"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
-                                autoComplete="username"
-                                className="w-full rounded-xl border border-gray-300 bg-white py-3.5 pl-11 pr-4 font-medium outline-none transition placeholder-gray-400 focus:border-[#0084ff] focus:ring-2 focus:ring-[#0084ff]/20"
-                                placeholder="user123 hoặc atmin123"
+                                autoComplete="off"
+                                autoCapitalize="none"
+                                spellCheck={false}
+                                className="w-full rounded-xl border border-gray-300 bg-white py-3.5 pl-11 pr-4 font-medium outline-none transition focus:border-[#0084ff] focus:ring-2 focus:ring-[#0084ff]/20"
                             />
                         </div>
                     </div>
@@ -76,9 +77,8 @@ export const Login = () => {
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                autoComplete="current-password"
-                                className="w-full rounded-xl border border-gray-300 bg-white py-3.5 pl-11 pr-4 font-medium outline-none transition placeholder-gray-400 focus:border-[#0084ff] focus:ring-2 focus:ring-[#0084ff]/20"
-                                placeholder="12345678 hoặc atmin123"
+                                autoComplete="off"
+                                className="w-full rounded-xl border border-gray-300 bg-white py-3.5 pl-11 pr-4 font-medium outline-none transition focus:border-[#0084ff] focus:ring-2 focus:ring-[#0084ff]/20"
                             />
                         </div>
                     </div>

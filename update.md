@@ -264,7 +264,7 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - Đăng nhập sai trả HTTP 401 với thông báo rõ ràng thay vì bị chuyển thành HTTP 500.
 - Không gọi `/auth/refresh` ở lần mở đầu khi trình duyệt chưa từng có phiên đăng nhập, loại bỏ lỗi 401 gây nhiễu trong Console.
 - Lưu một cờ phiên không nhạy cảm; token và refresh token vẫn không được ghi vào localStorage.
-- Đổi placeholder thành `user123 hoặc atmin123` và `12345678 hoặc atmin123`, đồng thời bật autocomplete đúng chuẩn cho trình quản lý mật khẩu.
+- Giữ input đăng nhập hoàn toàn sạch: không placeholder, không tài khoản/mật khẩu mẫu và tắt autocomplete để giao diện không làm lộ hoặc gợi ý thông tin đăng nhập.
 
 ## Sửa trạng thái người đang online bị hiển thị ngoại tuyến
 
