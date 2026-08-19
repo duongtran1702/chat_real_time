@@ -4,6 +4,13 @@ spring:
     url: jdbc:mysql://localhost:3306/server_test_ai_db?createDatabaseIfNotExist=true
     username: root
     password: ${DB_PASS}
+  ai:
+    chat:
+      memory:
+        repository:
+          jdbc:
+            # Local dùng InMemory ChatMemory → không cần tạo bảng JDBC.
+            initialize-schema: never
 
 app:
   auth:

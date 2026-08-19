@@ -18,6 +18,16 @@ public interface MessageRepository extends JpaRepository<Message, String> {
 
     List<Message> findTop20ByConversation_IdOrderByCreatedAtDesc(String conversationId);
 
+    /** Lấy tin nhắn gần nhất theo conversation, sắp xếp mới → cũ (dùng cho AI Tool tóm tắt). */
+    @Query("SELECT m FROM Message m WHERE m.conversation.id = :conversationId ORDER BY m.createdAt DESC")
+    List<Message> findRecentMessages(String conversationId, Pageable pageable);
+
+    /** Tìm kiếm tin nhắn theo từ khóa trong conversation (dùng cho AI Tool tra cứu). */
+    @Query("SELECT m FROM Message m WHERE m.conversation.id = :conversationId "
+            + "AND LOWER(m.content) LIKE LOWER(CONCAT('%', :keyword, '%')) "
+            + "ORDER BY m.createdAt DESC")
+    List<Message> searchByKeyword(String conversationId, String keyword, Pageable pageable);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Message message

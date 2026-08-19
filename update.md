@@ -1,6 +1,50 @@
 # Nhật Ký Cập Nhật - Dự Án Chat Real-Time AI (@CloseFriend)
 
-**Ngày cập nhật**: 18/08/2026
+**Ngày cập nhật**: 19/08/2026
+
+---
+
+## Cập nhật 19/08/2026 — Nâng Cấp Spring AI: ChatMemory, Advisor, ChatOptions & @Tool Nghiệp Vụ
+
+### Tổng quan
+Nâng cấp toàn bộ tích hợp Spring AI cho bot @CloseFriend, đáp ứng đầy đủ 4 mục tiêu kiến thức: ChatClient cấu hình chuẩn, ChatMemory với Advisor, ChatOptions bằng code, và @Tool function calling nghiệp vụ.
+
+### Các file đã sửa đổi / tạo mới
+
+#### 1. `[NEW] CloseFriendAiConfig.java` — Cấu hình AI tập trung
+- **ChatMemory Bean**: Sử dụng `MessageWindowChatMemory` với `maxMessages(20)` (sliding window).
+  - **Local**: Dùng `InMemoryChatMemoryRepository` (mặc định, mất khi restart).
+  - **Cloud**: Dùng `JdbcChatMemoryRepository` (lưu vào PostgreSQL/Supabase, bền vững).
+- **ChatClient Bean**: Cấu hình đầy đủ 4 thành phần:
+  - `.defaultSystem(SYSTEM_PROMPT)` — System prompt định hình vai trò.
+  - `.defaultOptions(OpenAiChatOptions.builder().model().temperature().maxTokens())` — ChatOptions bằng code.
+  - `.defaultAdvisors(MessageChatMemoryAdvisor)` — Advisor tự động ghi nhớ lịch sử hội thoại.
+  - `.defaultTools(closeFriendTools)` — Tool mặc định cho LLM tự gọi.
+
+#### 2. `[MODIFY] CloseFriendAiService.java` — Refactor AI Service
+- **Inject `ChatClient` thay vì `ChatClient.Builder`** — dùng bean đã cấu hình sẵn.
+- **Xóa `buildPrompt()` method** — không cần tự query DB 20 tin nhắn nữa, `MessageChatMemoryAdvisor` tự xử lý.
+- **Xóa constant `SYSTEM_PROMPT`** — đã chuyển sang `CloseFriendAiConfig`.
+- **Truyền `conversationId` qua advisor params** — `ChatMemory.CONVERSATION_ID` để cô lập memory từng cuộc hội thoại.
+
+#### 3. `[MODIFY] CloseFriendTools.java` — Mở rộng @Tool nghiệp vụ
+- **Giữ nguyên**: `getVietnamCurrentTime()` — lấy giờ hiện tại.
+- **Thêm mới**: `getRecentChatSummary(conversationId)` — lấy 30 tin nhắn gần nhất để LLM tóm tắt cuộc trò chuyện.
+- **Thêm mới**: `searchMessages(conversationId, keyword)` — tìm kiếm tin nhắn theo từ khóa trong lịch sử chat.
+- Sử dụng `@ToolParam` mô tả chi tiết từng tham số.
+
+#### 4. `[MODIFY] MessageRepository.java` — Thêm query method
+- `findRecentMessages(conversationId, Pageable)` — lấy tin nhắn gần nhất (dùng cho tool tóm tắt).
+- `searchByKeyword(conversationId, keyword, Pageable)` — tìm tin nhắn chứa từ khóa (dùng cho tool tra cứu).
+
+#### 5. `[MODIFY] build.gradle` — Thêm dependency
+- `spring-ai-starter-model-chat-memory-repository-jdbc` — hỗ trợ JDBC ChatMemory cho cloud.
+
+#### 6. `[MODIFY] application-local.yml` — Cấu hình local
+- `spring.ai.chat.memory.repository.jdbc.initialize-schema: never` — local không cần tạo bảng JDBC.
+
+#### 7. `[MODIFY] application-cloud.yml` — Cấu hình cloud
+- `spring.ai.chat.memory.repository.jdbc.initialize-schema: always` — cloud tự tạo bảng `SPRING_AI_CHAT_MEMORY`.
 
 ---
 
