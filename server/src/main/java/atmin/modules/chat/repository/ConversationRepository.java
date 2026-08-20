@@ -12,6 +12,9 @@ public interface ConversationRepository extends JpaRepository<Conversation, Stri
     
     List<Conversation> findByParticipants_IdOrderByUpdatedAtDesc(String userId);
 
+    java.util.Optional<Conversation> findByUserLowIdAndUserHighId(String userLowId, String userHighId);
+
+
     @org.springframework.data.jpa.repository.Query("SELECT c FROM Conversation c JOIN c.participants p1 JOIN c.participants p2 WHERE c.isGroup = false AND p1.id = :userId1 AND p2.id = :userId2")
     java.util.Optional<Conversation> findPrivateConversationBetweenUsers(
             @org.springframework.data.repository.query.Param("userId1") String userId1,

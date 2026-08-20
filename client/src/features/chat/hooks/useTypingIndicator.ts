@@ -82,24 +82,18 @@ export function useTypingIndicator({ client, conversationId, currentUserId }: Us
     };
   }, [client, conversationId, currentUserId, clearAllTimeouts]);
 
-  // Gửi typing event — debounce 500ms, throttle 2s
+  // Gửi typing event — throttle 2s
   const emitTyping = useCallback(() => {
     if (!client?.connected || !conversationId) return;
 
     const now = Date.now();
     if (now - lastSentRef.current < 2000) return;
 
-    if (sendTimeoutRef.current) clearTimeout(sendTimeoutRef.current);
-
-    sendTimeoutRef.current = setTimeout(() => {
-      if (client.connected) {
-        client.publish({
-          destination: '/app/chat.typing',
-          body: JSON.stringify({ conversationId }),
-        });
-        lastSentRef.current = Date.now();
-      }
-    }, 500);
+    client.publish({
+      destination: '/app/chat.typing',
+      body: JSON.stringify({ conversationId }),
+    });
+    lastSentRef.current = now;
   }, [client, conversationId]);
 
   return { typingUsers, emitTyping };

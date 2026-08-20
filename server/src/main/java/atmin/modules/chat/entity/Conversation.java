@@ -13,7 +13,12 @@ import java.util.Set;
 import java.util.UUID;
 
 @Entity
-@Table(name = "conversations")
+@Table(
+    name = "conversations",
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uq_private_conversation", columnNames = {"user_low_id", "user_high_id"})
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -29,6 +34,12 @@ public class Conversation extends BaseEntity {
 
     @Column(nullable = false)
     private boolean isGroup = false;
+
+    @Column(name = "user_low_id", length = 50)
+    private String userLowId;
+
+    @Column(name = "user_high_id", length = 50)
+    private String userHighId;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

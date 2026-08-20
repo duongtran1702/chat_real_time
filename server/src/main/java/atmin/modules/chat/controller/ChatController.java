@@ -72,7 +72,7 @@ public class ChatController {
         }
     }
 
-    @PostMapping(value = "/conversations/{conversationId}/images", consumes = "multipart/form-data")
+    @PostMapping(value = "/conversations/{conversationId}/images")
     public ResponseEntity<ApiResponse<MessageResponse>> sendImage(
             @PathVariable String conversationId,
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file,

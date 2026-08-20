@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -121,30 +122,47 @@ public class ChatServiceImpl implements ChatService {
 
         String firstUserId = currentUserId.compareTo(targetUserId) <= 0 ? currentUserId : targetUserId;
         String secondUserId = currentUserId.compareTo(targetUserId) <= 0 ? targetUserId : currentUserId;
-        User firstLockedUser = lockUser(firstUserId);
-        User secondLockedUser = lockUser(secondUserId);
-
-        Optional<Conversation> existingConversation = conversationRepository
-                .findPrivateConversationBetweenUsers(currentUserId, targetUserId);
-        if (existingConversation.isPresent()) {
-            return atmin.modules.chat.dto.ConversationResponse.fromEntity(existingConversation.get());
+        
+        // Thử tìm trước (đường nhanh, không lock)
+        Optional<Conversation> existing = conversationRepository.findByUserLowIdAndUserHighId(firstUserId, secondUserId);
+        
+        if (existing.isEmpty()) {
+            // Fallback cho data cũ chưa có user_low_id và user_high_id
+            existing = conversationRepository.findPrivateConversationBetweenUsers(currentUserId, targetUserId);
+            if (existing.isPresent()) {
+                // Backfill (cập nhật data cũ để dùng index mới)
+                Conversation conv = existing.get();
+                conv.setUserLowId(firstUserId);
+                conv.setUserHighId(secondUserId);
+                conversationRepository.saveAndFlush(conv);
+                return atmin.modules.chat.dto.ConversationResponse.fromEntity(conv);
+            }
+        } else {
+            return atmin.modules.chat.dto.ConversationResponse.fromEntity(existing.get());
         }
 
-        User currentUser = currentUserId.equals(firstUserId) ? firstLockedUser : secondLockedUser;
-        User targetUser = targetUserId.equals(firstUserId) ? firstLockedUser : secondLockedUser;
+        // Chưa có thì insert, dựa vào unique constraint để tránh trùng
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng: " + currentUserId));
+        User targetUser = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng: " + targetUserId));
 
-        Conversation newConv = new Conversation();
-        newConv.setId(UUID.randomUUID().toString());
-        newConv.setGroup(false);
-        newConv.setParticipants(new java.util.HashSet<>(Set.of(currentUser, targetUser)));
+        try {
+            Conversation newConv = new Conversation();
+            newConv.setId(UUID.randomUUID().toString());
+            newConv.setGroup(false);
+            newConv.setUserLowId(firstUserId);
+            newConv.setUserHighId(secondUserId);
+            newConv.setParticipants(new java.util.HashSet<>(Set.of(currentUser, targetUser)));
 
-        conversationRepository.save(newConv);
-        
-        return atmin.modules.chat.dto.ConversationResponse.fromEntity(newConv);
-    }
-
-    private User lockUser(String userId) {
-        return userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng: " + userId));
+            newConv = conversationRepository.saveAndFlush(newConv);
+            return atmin.modules.chat.dto.ConversationResponse.fromEntity(newConv);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // Trường hợp hiếm: 2 request cùng insert 1 lúc, request thua chỉ cần query lại
+            return conversationRepository
+                    .findByUserLowIdAndUserHighId(firstUserId, secondUserId)
+                    .map(atmin.modules.chat.dto.ConversationResponse::fromEntity)
+                    .orElseThrow(() -> new IllegalStateException("Lỗi tranh chấp dữ liệu khi tạo phòng chat"));
+        }
     }
 }

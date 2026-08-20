@@ -1,545 +1,617 @@
-# Nhật Ký Cập Nhật - Dự Án Chat Real-Time AI (@CloseFriend)
+﻿# Nháº­t KÃ½ Cáº­p Nháº­t - Dá»± Ãn Chat Real-Time AI (@CloseFriend)
 
-**Ngày cập nhật**: 19/08/2026
-
----
-
-## Cập nhật 19/08/2026 — Nâng Cấp Spring AI: ChatMemory, Advisor, ChatOptions & @Tool Nghiệp Vụ
-
-### Tổng quan
-Nâng cấp toàn bộ tích hợp Spring AI cho bot @CloseFriend, đáp ứng đầy đủ 4 mục tiêu kiến thức: ChatClient cấu hình chuẩn, ChatMemory với Advisor, ChatOptions bằng code, và @Tool function calling nghiệp vụ.
-
-### Các file đã sửa đổi / tạo mới
-
-#### 1. `[NEW] CloseFriendAiConfig.java` — Cấu hình AI tập trung
-- **ChatMemory Bean**: Sử dụng `MessageWindowChatMemory` với `maxMessages(20)` (sliding window).
-  - **Local**: Dùng `InMemoryChatMemoryRepository` (mặc định, mất khi restart).
-  - **Cloud**: Dùng `JdbcChatMemoryRepository` (lưu vào PostgreSQL/Supabase, bền vững).
-- **ChatClient Bean**: Cấu hình đầy đủ 4 thành phần:
-  - `.defaultSystem(SYSTEM_PROMPT)` — System prompt định hình vai trò.
-  - `.defaultOptions(OpenAiChatOptions.builder().model().temperature().maxTokens())` — ChatOptions bằng code.
-  - `.defaultAdvisors(MessageChatMemoryAdvisor)` — Advisor tự động ghi nhớ lịch sử hội thoại.
-  - `.defaultTools(closeFriendTools)` — Tool mặc định cho LLM tự gọi.
-
-#### 2. `[MODIFY] CloseFriendAiService.java` — Refactor AI Service
-- **Inject `ChatClient` thay vì `ChatClient.Builder`** — dùng bean đã cấu hình sẵn.
-- **Xóa `buildPrompt()` method** — không cần tự query DB 20 tin nhắn nữa, `MessageChatMemoryAdvisor` tự xử lý.
-- **Xóa constant `SYSTEM_PROMPT`** — đã chuyển sang `CloseFriendAiConfig`.
-- **Truyền `conversationId` qua advisor params** — `ChatMemory.CONVERSATION_ID` để cô lập memory từng cuộc hội thoại.
-
-#### 3. `[MODIFY] CloseFriendTools.java` — Mở rộng @Tool nghiệp vụ
-- **Giữ nguyên**: `getVietnamCurrentTime()` — lấy giờ hiện tại.
-- **Thêm mới**: `getRecentChatSummary(conversationId)` — lấy 30 tin nhắn gần nhất để LLM tóm tắt cuộc trò chuyện.
-- **Thêm mới**: `searchMessages(conversationId, keyword)` — tìm kiếm tin nhắn theo từ khóa trong lịch sử chat.
-- Sử dụng `@ToolParam` mô tả chi tiết từng tham số.
-
-#### 4. `[MODIFY] MessageRepository.java` — Thêm query method
-- `findRecentMessages(conversationId, Pageable)` — lấy tin nhắn gần nhất (dùng cho tool tóm tắt).
-- `searchByKeyword(conversationId, keyword, Pageable)` — tìm tin nhắn chứa từ khóa (dùng cho tool tra cứu).
-
-#### 5. `[MODIFY] build.gradle` — Thêm dependency
-- `spring-ai-starter-model-chat-memory-repository-jdbc` — hỗ trợ JDBC ChatMemory cho cloud.
-
-#### 6. `[MODIFY] application-local.yml` — Cấu hình local
-- `spring.ai.chat.memory.repository.jdbc.initialize-schema: never` — local không cần tạo bảng JDBC.
-
-#### 7. `[MODIFY] application-cloud.yml` — Cấu hình cloud
-- `spring.ai.chat.memory.repository.jdbc.initialize-schema: always` — cloud tự tạo bảng `SPRING_AI_CHAT_MEMORY`.
+**NgÃ y cáº­p nháº­t**: 19/08/2026
 
 ---
 
-## Cập nhật 18/08/2026 — Đổi tên ứng dụng thành "Chat Together"
+## Cập nhật 20/08/2026 - Sửa lỗi hiển thị Typing Indicator
 
 ### Tổng quan
-Cập nhật toàn diện tên nhận diện thương hiệu của ứng dụng từ "CloseFriend Chat" sang "Chat Together" trên cả Client và Server.
+Khắc phục lỗi không hiển thị Typing Indicator khi người dùng gõ tin nhắn liên tục. Trước đó, cơ chế debounce (500ms) đã khiến sự kiện chat.typing liên tục bị huỷ (clearTimeout) nếu người dùng gõ phím quá nhanh mà không tạm nghỉ. Giải pháp là chuyển đổi logic debounce thành throttle (gửi ngay lập tức ở lần gõ đầu tiên và giãn cách tối đa 2 giây giữa các lần gửi nếu tiếp tục gõ) để đảm bảo trạng thái "đang nhập" được đồng bộ realtime chính xác.
 
-### Chi tiết thay đổi
-1. **Giao diện Client:**
-   - Thay đổi các tiêu đề và thẻ text trên ứng dụng (`App.tsx`, `Login.tsx`, `Register.tsx`, `ConversationList.tsx`, `index.html`) thành "Chat Together".
-   - Đổi tên bot AI nhận diện từ "CloseFriend AI" sang "Chat Together AI" (`BotAvatar.tsx`, `ChatBox.tsx`, `MentionSuggestions.tsx`, `MessageItem.tsx`).
-2. **Cú pháp gọi Bot (Client & Server):**
-   - Giữ cú pháp đề cập bot là `@CloseFriend` trên cả Client và Server để người dùng tiếp tục dùng lệnh quen thuộc.
+### Các file đã thay đổi
 
-### Kết quả kiểm tra
-- ✅ Ứng dụng đã được thống nhất tên gọi "Chat Together".
-- ✅ TypeScript type check: `tsc --noEmit` pass (exit code 0).
-- ✅ Server build: `gradlew build -x test` — BUILD SUCCESSFUL.
+#### 1. [MODIFY] client/src/features/chat/hooks/useTypingIndicator.ts
+- Bỏ logic setTimeout debounce 500ms.
+- Sửa hàm emitTyping để gửi payload qua WebSocket ngay lập tức.
+- Giữ lại cơ chế throttle (kiểm tra Date.now() - lastSentRef.current < 2000) để giảm tải cho server nhưng vẫn đảm bảo hiển thị typing mượt mà.
+
+## Cáº­p nháº­t 19/08/2026 â€” NÃ¢ng Cáº¥p Spring AI: ChatMemory, Advisor, ChatOptions & @Tool Nghiá»‡p Vá»¥
+
+### Tá»•ng quan
+NÃ¢ng cáº¥p toÃ n bá»™ tÃ­ch há»£p Spring AI cho bot @CloseFriend, Ä‘Ã¡p á»©ng Ä‘áº§y Ä‘á»§ 4 má»¥c tiÃªu kiáº¿n thá»©c: ChatClient cáº¥u hÃ¬nh chuáº©n, ChatMemory vá»›i Advisor, ChatOptions báº±ng code, vÃ  @Tool function calling nghiá»‡p vá»¥.
+
+### CÃ¡c file Ä‘Ã£ sá»­a Ä‘á»•i / táº¡o má»›i
+
+#### 1. `[NEW] CloseFriendAiConfig.java` â€” Cáº¥u hÃ¬nh AI táº­p trung
+- **ChatMemory Bean**: Sá»­ dá»¥ng `MessageWindowChatMemory` vá»›i `maxMessages(20)` (sliding window).
+  - **Local**: DÃ¹ng `InMemoryChatMemoryRepository` (máº·c Ä‘á»‹nh, máº¥t khi restart).
+  - **Cloud**: DÃ¹ng `JdbcChatMemoryRepository` (lÆ°u vÃ o PostgreSQL/Supabase, bá»n vá»¯ng).
+- **ChatClient Bean**: Cáº¥u hÃ¬nh Ä‘áº§y Ä‘á»§ 4 thÃ nh pháº§n:
+  - `.defaultSystem(SYSTEM_PROMPT)` â€” System prompt Ä‘á»‹nh hÃ¬nh vai trÃ².
+  - `.defaultOptions(OpenAiChatOptions.builder().model().temperature().maxTokens())` â€” ChatOptions báº±ng code.
+  - `.defaultAdvisors(MessageChatMemoryAdvisor)` â€” Advisor tá»± Ä‘á»™ng ghi nhá»› lá»‹ch sá»­ há»™i thoáº¡i.
+  - `.defaultTools(closeFriendTools)` â€” Tool máº·c Ä‘á»‹nh cho LLM tá»± gá»i.
+
+#### 2. `[MODIFY] CloseFriendAiService.java` â€” Refactor AI Service
+- **Inject `ChatClient` thay vÃ¬ `ChatClient.Builder`** â€” dÃ¹ng bean Ä‘Ã£ cáº¥u hÃ¬nh sáºµn.
+- **XÃ³a `buildPrompt()` method** â€” khÃ´ng cáº§n tá»± query DB 20 tin nháº¯n ná»¯a, `MessageChatMemoryAdvisor` tá»± xá»­ lÃ½.
+- **XÃ³a constant `SYSTEM_PROMPT`** â€” Ä‘Ã£ chuyá»ƒn sang `CloseFriendAiConfig`.
+- **Truyá»n `conversationId` qua advisor params** â€” `ChatMemory.CONVERSATION_ID` Ä‘á»ƒ cÃ´ láº­p memory tá»«ng cuá»™c há»™i thoáº¡i.
+
+#### 3. `[MODIFY] CloseFriendTools.java` â€” Má»Ÿ rá»™ng @Tool nghiá»‡p vá»¥
+- **Giá»¯ nguyÃªn**: `getVietnamCurrentTime()` â€” láº¥y giá» hiá»‡n táº¡i.
+- **ThÃªm má»›i**: `getRecentChatSummary(conversationId)` â€” láº¥y 30 tin nháº¯n gáº§n nháº¥t Ä‘á»ƒ LLM tÃ³m táº¯t cuá»™c trÃ² chuyá»‡n.
+- **ThÃªm má»›i**: `searchMessages(conversationId, keyword)` â€” tÃ¬m kiáº¿m tin nháº¯n theo tá»« khÃ³a trong lá»‹ch sá»­ chat.
+- Sá»­ dá»¥ng `@ToolParam` mÃ´ táº£ chi tiáº¿t tá»«ng tham sá»‘.
+
+#### 4. `[MODIFY] MessageRepository.java` â€” ThÃªm query method
+- `findRecentMessages(conversationId, Pageable)` â€” láº¥y tin nháº¯n gáº§n nháº¥t (dÃ¹ng cho tool tÃ³m táº¯t).
+- `searchByKeyword(conversationId, keyword, Pageable)` â€” tÃ¬m tin nháº¯n chá»©a tá»« khÃ³a (dÃ¹ng cho tool tra cá»©u).
+
+#### 5. `[MODIFY] build.gradle` â€” ThÃªm dependency
+- `spring-ai-starter-model-chat-memory-repository-jdbc` â€” há»— trá»£ JDBC ChatMemory cho cloud.
+
+#### 6. `[MODIFY] application-local.yml` â€” Cáº¥u hÃ¬nh local
+- `spring.ai.chat.memory.repository.jdbc.initialize-schema: never` â€” local khÃ´ng cáº§n táº¡o báº£ng JDBC.
+
+#### 7. `[MODIFY] application-cloud.yml` â€” Cáº¥u hÃ¬nh cloud
+- `spring.ai.chat.memory.repository.jdbc.initialize-schema: always` â€” cloud tá»± táº¡o báº£ng `SPRING_AI_CHAT_MEMORY`.
 
 ---
 
-## Cập nhật 18/08/2026 — Tính năng Đăng ký tài khoản và Tìm kiếm bạn bè
+## Cập nhật 20/08/2026 - Sửa lỗi hiển thị Typing Indicator
 
 ### Tổng quan
-Hoàn thiện chức năng để người dùng có thể tự đăng ký tài khoản mới và tìm kiếm/kết bạn với người dùng khác thông qua tính năng Search thay vì sử dụng tài khoản demo.
+Khắc phục lỗi không hiển thị Typing Indicator khi người dùng gõ tin nhắn liên tục. Trước đó, cơ chế debounce (500ms) đã khiến sự kiện chat.typing liên tục bị huỷ (clearTimeout) nếu người dùng gõ phím quá nhanh mà không tạm nghỉ. Giải pháp là chuyển đổi logic debounce thành throttle (gửi ngay lập tức ở lần gõ đầu tiên và giãn cách tối đa 2 giây giữa các lần gửi nếu tiếp tục gõ) để đảm bảo trạng thái "đang nhập" được đồng bộ realtime chính xác.
 
-### Chi tiết thay đổi
+### Các file đã thay đổi
 
-#### 1. API Đăng ký (Server)
-- Thêm `RegisterRequest` DTO với validation (Tài khoản >= 5 ký tự, Mật khẩu >= 6 ký tự).
-- `AuthService`: Kiểm tra trùng lặp `username`, mật khẩu xác nhận phải khớp. Tạo tài khoản với trạng thái `ACTIVE` mặc định và mã hóa mật khẩu bằng `BCrypt`.
-- `AuthController`: Mở endpoint `POST /api/v1/auth/register`.
+#### 1. [MODIFY] client/src/features/chat/hooks/useTypingIndicator.ts
+- Bỏ logic setTimeout debounce 500ms.
+- Sửa hàm emitTyping để gửi payload qua WebSocket ngay lập tức.
+- Giữ lại cơ chế throttle (kiểm tra Date.now() - lastSentRef.current < 2000) để giảm tải cho server nhưng vẫn đảm bảo hiển thị typing mượt mà.
 
-#### 2. Tính năng Tìm kiếm bạn bè (Client & Server)
-- **Server:** Bổ sung `findByUsernameContainingIgnoreCase` trong `UserRepository`. Thêm endpoint `GET /api/v1/users/search?username={q}` trong `UserProfileController` giúp tìm kiếm tương đối user (loại bỏ chính mình và user bị khóa).
-- **Client:** Bổ sung thanh Search trong `ConversationList.tsx` với kỹ thuật debounce (500ms) để không spam API. Kết quả tìm kiếm hiển thị dạng danh sách người dùng thay thế cho danh sách phòng chat hiện tại.
+## Cáº­p nháº­t 18/08/2026 â€” Äá»•i tÃªn á»©ng dá»¥ng thÃ nh "Chat Together"
 
-#### 3. Tạo phòng chat 1-1 (Server & Client)
-- **Server:** Thêm custom query `findPrivateConversationBetweenUsers` trong `ConversationRepository` để kiểm tra 2 người đã từng chat chưa. Thêm endpoint `POST /api/v1/chat/conversations/user/{targetUserId}` trong `ChatController` để tự động khởi tạo hoặc trả về phòng chat hiện hữu.
-- **Client:** Tích hợp gọi API tạo phòng chat khi user click vào một người trong kết quả tìm kiếm, sau đó refetch danh sách cuộc trò chuyện và tự động select phòng chat vừa được khởi tạo.
+### Tá»•ng quan
+Cáº­p nháº­t toÃ n diá»‡n tÃªn nháº­n diá»‡n thÆ°Æ¡ng hiá»‡u cá»§a á»©ng dá»¥ng tá»« "CloseFriend Chat" sang "Chat Together" trÃªn cáº£ Client vÃ  Server.
 
-#### 4. Giao diện Đăng ký (Client)
-- Tạo component `Register.tsx` sử dụng phong cách Glassmorphism đồng nhất với trang `Login`.
-- Hỗ trợ hiển thị lỗi *inline validation* với text màu đỏ nhạt ngay dưới từng ô input (thay vì chỉ dùng Toast) theo yêu cầu UX khắt khe.
-- Cập nhật `App.tsx` hỗ trợ chuyển đổi mượt mà giữa màn hình Đăng nhập và Đăng ký.
+### Chi tiáº¿t thay Ä‘á»•i
+1. **Giao diá»‡n Client:**
+   - Thay Ä‘á»•i cÃ¡c tiÃªu Ä‘á» vÃ  tháº» text trÃªn á»©ng dá»¥ng (`App.tsx`, `Login.tsx`, `Register.tsx`, `ConversationList.tsx`, `index.html`) thÃ nh "Chat Together".
+   - Äá»•i tÃªn bot AI nháº­n diá»‡n tá»« "CloseFriend AI" sang "Chat Together AI" (`BotAvatar.tsx`, `ChatBox.tsx`, `MentionSuggestions.tsx`, `MessageItem.tsx`).
+2. **CÃº phÃ¡p gá»i Bot (Client & Server):**
+   - Giá»¯ cÃº phÃ¡p Ä‘á» cáº­p bot lÃ  `@CloseFriend` trÃªn cáº£ Client vÃ  Server Ä‘á»ƒ ngÆ°á»i dÃ¹ng tiáº¿p tá»¥c dÃ¹ng lá»‡nh quen thuá»™c.
 
-### Kết quả kiểm tra
-- ✅ API validation bắt chính xác các rule: tài khoản >= 5 ký tự, mật khẩu >= 6 ký tự, trùng username.
-- ✅ Client tự động debounce search API, không gây lỗi memory/leak.
-- ✅ TypeScript type check: `tsc --noEmit` pass (exit code 0).
-- ✅ Server build: `gradlew build -x test` — BUILD SUCCESSFUL.
+### Káº¿t quáº£ kiá»ƒm tra
+- âœ… á»¨ng dá»¥ng Ä‘Ã£ Ä‘Æ°á»£c thá»‘ng nháº¥t tÃªn gá»i "Chat Together".
+- âœ… TypeScript type check: `tsc --noEmit` pass (exit code 0).
+- âœ… Server build: `gradlew build -x test` â€” BUILD SUCCESSFUL.
 
 ---
 
-## Cập nhật 18/08/2026 — Tính năng mới: Typing Indicator + Reply Message
+## Cập nhật 20/08/2026 - Sửa lỗi hiển thị Typing Indicator
 
 ### Tổng quan
-Thêm 2 tính năng UX quan trọng cho CloseFriend Chat:
-1. **Typing Indicator** — hiển thị "Tên đang nhập..." real-time khi người khác đang gõ tin nhắn.
-2. **Reply Message** — trả lời (reply) một tin nhắn cụ thể, hiển thị quote block và scroll tới tin gốc.
+Khắc phục lỗi không hiển thị Typing Indicator khi người dùng gõ tin nhắn liên tục. Trước đó, cơ chế debounce (500ms) đã khiến sự kiện chat.typing liên tục bị huỷ (clearTimeout) nếu người dùng gõ phím quá nhanh mà không tạm nghỉ. Giải pháp là chuyển đổi logic debounce thành throttle (gửi ngay lập tức ở lần gõ đầu tiên và giãn cách tối đa 2 giây giữa các lần gửi nếu tiếp tục gõ) để đảm bảo trạng thái "đang nhập" được đồng bộ realtime chính xác.
 
-### Chi tiết thay đổi
+### Các file đã thay đổi
+
+#### 1. [MODIFY] client/src/features/chat/hooks/useTypingIndicator.ts
+- Bỏ logic setTimeout debounce 500ms.
+- Sửa hàm emitTyping để gửi payload qua WebSocket ngay lập tức.
+- Giữ lại cơ chế throttle (kiểm tra Date.now() - lastSentRef.current < 2000) để giảm tải cho server nhưng vẫn đảm bảo hiển thị typing mượt mà.
+
+## Cáº­p nháº­t 18/08/2026 â€” TÃ­nh nÄƒng ÄÄƒng kÃ½ tÃ i khoáº£n vÃ  TÃ¬m kiáº¿m báº¡n bÃ¨
+
+### Tá»•ng quan
+HoÃ n thiá»‡n chá»©c nÄƒng Ä‘á»ƒ ngÆ°á»i dÃ¹ng cÃ³ thá»ƒ tá»± Ä‘Äƒng kÃ½ tÃ i khoáº£n má»›i vÃ  tÃ¬m kiáº¿m/káº¿t báº¡n vá»›i ngÆ°á»i dÃ¹ng khÃ¡c thÃ´ng qua tÃ­nh nÄƒng Search thay vÃ¬ sá»­ dá»¥ng tÃ i khoáº£n demo.
+
+### Chi tiáº¿t thay Ä‘á»•i
+
+#### 1. API ÄÄƒng kÃ½ (Server)
+- ThÃªm `RegisterRequest` DTO vá»›i validation (TÃ i khoáº£n >= 5 kÃ½ tá»±, Máº­t kháº©u >= 6 kÃ½ tá»±).
+- `AuthService`: Kiá»ƒm tra trÃ¹ng láº·p `username`, máº­t kháº©u xÃ¡c nháº­n pháº£i khá»›p. Táº¡o tÃ i khoáº£n vá»›i tráº¡ng thÃ¡i `ACTIVE` máº·c Ä‘á»‹nh vÃ  mÃ£ hÃ³a máº­t kháº©u báº±ng `BCrypt`.
+- `AuthController`: Má»Ÿ endpoint `POST /api/v1/auth/register`.
+
+#### 2. TÃ­nh nÄƒng TÃ¬m kiáº¿m báº¡n bÃ¨ (Client & Server)
+- **Server:** Bá»• sung `findByUsernameContainingIgnoreCase` trong `UserRepository`. ThÃªm endpoint `GET /api/v1/users/search?username={q}` trong `UserProfileController` giÃºp tÃ¬m kiáº¿m tÆ°Æ¡ng Ä‘á»‘i user (loáº¡i bá» chÃ­nh mÃ¬nh vÃ  user bá»‹ khÃ³a).
+- **Client:** Bá»• sung thanh Search trong `ConversationList.tsx` vá»›i ká»¹ thuáº­t debounce (500ms) Ä‘á»ƒ khÃ´ng spam API. Káº¿t quáº£ tÃ¬m kiáº¿m hiá»ƒn thá»‹ dáº¡ng danh sÃ¡ch ngÆ°á»i dÃ¹ng thay tháº¿ cho danh sÃ¡ch phÃ²ng chat hiá»‡n táº¡i.
+
+#### 3. Táº¡o phÃ²ng chat 1-1 (Server & Client)
+- **Server:** ThÃªm custom query `findPrivateConversationBetweenUsers` trong `ConversationRepository` Ä‘á»ƒ kiá»ƒm tra 2 ngÆ°á»i Ä‘Ã£ tá»«ng chat chÆ°a. ThÃªm endpoint `POST /api/v1/chat/conversations/user/{targetUserId}` trong `ChatController` Ä‘á»ƒ tá»± Ä‘á»™ng khá»Ÿi táº¡o hoáº·c tráº£ vá» phÃ²ng chat hiá»‡n há»¯u.
+- **Client:** TÃ­ch há»£p gá»i API táº¡o phÃ²ng chat khi user click vÃ o má»™t ngÆ°á»i trong káº¿t quáº£ tÃ¬m kiáº¿m, sau Ä‘Ã³ refetch danh sÃ¡ch cuá»™c trÃ² chuyá»‡n vÃ  tá»± Ä‘á»™ng select phÃ²ng chat vá»«a Ä‘Æ°á»£c khá»Ÿi táº¡o.
+
+#### 4. Giao diá»‡n ÄÄƒng kÃ½ (Client)
+- Táº¡o component `Register.tsx` sá»­ dá»¥ng phong cÃ¡ch Glassmorphism Ä‘á»“ng nháº¥t vá»›i trang `Login`.
+- Há»— trá»£ hiá»ƒn thá»‹ lá»—i *inline validation* vá»›i text mÃ u Ä‘á» nháº¡t ngay dÆ°á»›i tá»«ng Ã´ input (thay vÃ¬ chá»‰ dÃ¹ng Toast) theo yÃªu cáº§u UX kháº¯t khe.
+- Cáº­p nháº­t `App.tsx` há»— trá»£ chuyá»ƒn Ä‘á»•i mÆ°á»£t mÃ  giá»¯a mÃ n hÃ¬nh ÄÄƒng nháº­p vÃ  ÄÄƒng kÃ½.
+
+### Káº¿t quáº£ kiá»ƒm tra
+- âœ… API validation báº¯t chÃ­nh xÃ¡c cÃ¡c rule: tÃ i khoáº£n >= 5 kÃ½ tá»±, máº­t kháº©u >= 6 kÃ½ tá»±, trÃ¹ng username.
+- âœ… Client tá»± Ä‘á»™ng debounce search API, khÃ´ng gÃ¢y lá»—i memory/leak.
+- âœ… TypeScript type check: `tsc --noEmit` pass (exit code 0).
+- âœ… Server build: `gradlew build -x test` â€” BUILD SUCCESSFUL.
+
+---
+
+## Cập nhật 20/08/2026 - Sửa lỗi hiển thị Typing Indicator
+
+### Tổng quan
+Khắc phục lỗi không hiển thị Typing Indicator khi người dùng gõ tin nhắn liên tục. Trước đó, cơ chế debounce (500ms) đã khiến sự kiện chat.typing liên tục bị huỷ (clearTimeout) nếu người dùng gõ phím quá nhanh mà không tạm nghỉ. Giải pháp là chuyển đổi logic debounce thành throttle (gửi ngay lập tức ở lần gõ đầu tiên và giãn cách tối đa 2 giây giữa các lần gửi nếu tiếp tục gõ) để đảm bảo trạng thái "đang nhập" được đồng bộ realtime chính xác.
+
+### Các file đã thay đổi
+
+#### 1. [MODIFY] client/src/features/chat/hooks/useTypingIndicator.ts
+- Bỏ logic setTimeout debounce 500ms.
+- Sửa hàm emitTyping để gửi payload qua WebSocket ngay lập tức.
+- Giữ lại cơ chế throttle (kiểm tra Date.now() - lastSentRef.current < 2000) để giảm tải cho server nhưng vẫn đảm bảo hiển thị typing mượt mà.
+
+## Cáº­p nháº­t 18/08/2026 â€” TÃ­nh nÄƒng má»›i: Typing Indicator + Reply Message
+
+### Tá»•ng quan
+ThÃªm 2 tÃ­nh nÄƒng UX quan trá»ng cho CloseFriend Chat:
+1. **Typing Indicator** â€” hiá»ƒn thá»‹ "TÃªn Ä‘ang nháº­p..." real-time khi ngÆ°á»i khÃ¡c Ä‘ang gÃµ tin nháº¯n.
+2. **Reply Message** â€” tráº£ lá»i (reply) má»™t tin nháº¯n cá»¥ thá»ƒ, hiá»ƒn thá»‹ quote block vÃ  scroll tá»›i tin gá»‘c.
+
+### Chi tiáº¿t thay Ä‘á»•i
 
 #### Feature 1: Typing Indicator
 
 **Server:**
-- [`WebSocketChatController.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/controller/WebSocketChatController.java) — Thêm endpoint `@MessageMapping("/chat.typing")`. Nhận payload `{ conversationId }`, kiểm tra quyền thành viên, lấy fullName từ DB và broadcast tới `/topic/conversation/{id}/typing`. Fire-and-forget, không lưu DB.
-- [`ChatSubscriptionSecurityConfig.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/core/security/ChatSubscriptionSecurityConfig.java) — Cho phép subscribe vào `/topic/conversation/{id}/typing` (strip `/typing` suffix khi kiểm tra quyền, cùng logic với `/read`).
+- [`WebSocketChatController.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/controller/WebSocketChatController.java) â€” ThÃªm endpoint `@MessageMapping("/chat.typing")`. Nháº­n payload `{ conversationId }`, kiá»ƒm tra quyá»n thÃ nh viÃªn, láº¥y fullName tá»« DB vÃ  broadcast tá»›i `/topic/conversation/{id}/typing`. Fire-and-forget, khÃ´ng lÆ°u DB.
+- [`ChatSubscriptionSecurityConfig.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/core/security/ChatSubscriptionSecurityConfig.java) â€” Cho phÃ©p subscribe vÃ o `/topic/conversation/{id}/typing` (strip `/typing` suffix khi kiá»ƒm tra quyá»n, cÃ¹ng logic vá»›i `/read`).
 
 **Client:**
-- [NEW] [`useTypingIndicator.ts`](file:///d:/ChatRealTime/client/src/features/chat/hooks/useTypingIndicator.ts) — Hook quản lý gửi (debounce 500ms + throttle 2s) và nhận typing events. Tự ẩn sau 3s, bỏ qua typing của chính mình, cleanup khi chuyển conversation.
-- [NEW] [`TypingIndicator.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/TypingIndicator.tsx) — Component hiển thị "Tên đang nhập" + 3 chấm bounce animation. Hỗ trợ hiển thị 1, 2 hoặc nhiều người đồng thời.
-- [`ChatBox.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/ChatBox.tsx) — Tích hợp `useTypingIndicator`, gọi `emitTyping()` khi user gõ phím, render `<TypingIndicator>` phía trên `messagesEndRef`.
-- [`useChatWebSocket.ts`](file:///d:/ChatRealTime/client/src/features/chat/hooks/useChatWebSocket.ts) — Expose `stompClient` để hook typing dùng chung kết nối.
-- [`index.css`](file:///d:/ChatRealTime/client/src/index.css) — Thêm CSS cho `.typing-indicator-*`, keyframes `typingBounce`.
+- [NEW] [`useTypingIndicator.ts`](file:///d:/ChatRealTime/client/src/features/chat/hooks/useTypingIndicator.ts) â€” Hook quáº£n lÃ½ gá»­i (debounce 500ms + throttle 2s) vÃ  nháº­n typing events. Tá»± áº©n sau 3s, bá» qua typing cá»§a chÃ­nh mÃ¬nh, cleanup khi chuyá»ƒn conversation.
+- [NEW] [`TypingIndicator.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/TypingIndicator.tsx) â€” Component hiá»ƒn thá»‹ "TÃªn Ä‘ang nháº­p" + 3 cháº¥m bounce animation. Há»— trá»£ hiá»ƒn thá»‹ 1, 2 hoáº·c nhiá»u ngÆ°á»i Ä‘á»“ng thá»i.
+- [`ChatBox.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/ChatBox.tsx) â€” TÃ­ch há»£p `useTypingIndicator`, gá»i `emitTyping()` khi user gÃµ phÃ­m, render `<TypingIndicator>` phÃ­a trÃªn `messagesEndRef`.
+- [`useChatWebSocket.ts`](file:///d:/ChatRealTime/client/src/features/chat/hooks/useChatWebSocket.ts) â€” Expose `stompClient` Ä‘á»ƒ hook typing dÃ¹ng chung káº¿t ná»‘i.
+- [`index.css`](file:///d:/ChatRealTime/client/src/index.css) â€” ThÃªm CSS cho `.typing-indicator-*`, keyframes `typingBounce`.
 
 #### Feature 2: Reply Message
 
 **Server:**
-- [`Message.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/entity/Message.java) — Thêm `@ManyToOne` self-referencing field `replyToMessage` → cột `reply_to_message_id` (nullable) trong bảng `messages`.
-- [`MessageRequest.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/dto/MessageRequest.java) — Thêm field optional `replyToMessageId`.
-- [`MessageResponse.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/dto/MessageResponse.java) — Thêm nested DTO `RepliedMessageSummary` (id, senderId, content cắt ngắn 100 ký tự). Cập nhật `fromEntity()`.
-- [`ChatServiceImpl.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/service/impl/ChatServiceImpl.java) — Khi có `replyToMessageId`: tìm message gốc, validate cùng conversation (chống reply xuyên phòng), gán vào entity trước khi save.
+- [`Message.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/entity/Message.java) â€” ThÃªm `@ManyToOne` self-referencing field `replyToMessage` â†’ cá»™t `reply_to_message_id` (nullable) trong báº£ng `messages`.
+- [`MessageRequest.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/dto/MessageRequest.java) â€” ThÃªm field optional `replyToMessageId`.
+- [`MessageResponse.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/dto/MessageResponse.java) â€” ThÃªm nested DTO `RepliedMessageSummary` (id, senderId, content cáº¯t ngáº¯n 100 kÃ½ tá»±). Cáº­p nháº­t `fromEntity()`.
+- [`ChatServiceImpl.java`](file:///d:/ChatRealTime/server/src/main/java/atmin/modules/chat/service/impl/ChatServiceImpl.java) â€” Khi cÃ³ `replyToMessageId`: tÃ¬m message gá»‘c, validate cÃ¹ng conversation (chá»‘ng reply xuyÃªn phÃ²ng), gÃ¡n vÃ o entity trÆ°á»›c khi save.
 
 **Client:**
-- [`useChatStore.ts`](file:///d:/ChatRealTime/client/src/features/chat/store/useChatStore.ts) — Thêm interface `RepliedMessageSummary`, mở rộng `Message` với field `repliedMessage`. Thêm state `replyingTo` + actions `setReplyingTo()`, `clearReplyingTo()`. Tự clear reply khi chuyển conversation.
-- [`useChatWebSocket.ts`](file:///d:/ChatRealTime/client/src/features/chat/hooks/useChatWebSocket.ts) — `sendMessage()` nhận thêm optional `replyTo` object. Optimistic message mang `repliedMessage` snapshot. Payload STOMP gửi kèm `replyToMessageId`.
-- [NEW] [`ReplyPreview.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/ReplyPreview.tsx) — Thanh preview trên input khi đang reply, viền accent gradient bên trái, tên sender + nội dung cắt ngắn, nút X hủy, animation slide-down.
-- [`MessageItem.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/MessageItem.tsx) — Thêm quote block render khi có `repliedMessage` (viền trái xanh, nền nhạt, click scroll tới tin gốc). Nút reply icon xuất hiện khi hover ở bên cạnh message bubble. Hỗ trợ hiển thị tên sender từ participants list.
-- [`ChatBox.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/ChatBox.tsx) — Tích hợp toàn bộ reply flow: lấy `replyingTo` từ store, render `<ReplyPreview>`, truyền `onReply`/`onScrollToMessage` xuống `<MessageItem>`, gửi `replyPayload` khi submit.
-- [`index.css`](file:///d:/ChatRealTime/client/src/index.css) — Thêm CSS cho `.reply-preview-*`, `.reply-quote-*`, `.reply-action-*`, `.message-highlight-flash`, các keyframes `replySlideDown` và `highlightFlash`.
+- [`useChatStore.ts`](file:///d:/ChatRealTime/client/src/features/chat/store/useChatStore.ts) â€” ThÃªm interface `RepliedMessageSummary`, má»Ÿ rá»™ng `Message` vá»›i field `repliedMessage`. ThÃªm state `replyingTo` + actions `setReplyingTo()`, `clearReplyingTo()`. Tá»± clear reply khi chuyá»ƒn conversation.
+- [`useChatWebSocket.ts`](file:///d:/ChatRealTime/client/src/features/chat/hooks/useChatWebSocket.ts) â€” `sendMessage()` nháº­n thÃªm optional `replyTo` object. Optimistic message mang `repliedMessage` snapshot. Payload STOMP gá»­i kÃ¨m `replyToMessageId`.
+- [NEW] [`ReplyPreview.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/ReplyPreview.tsx) â€” Thanh preview trÃªn input khi Ä‘ang reply, viá»n accent gradient bÃªn trÃ¡i, tÃªn sender + ná»™i dung cáº¯t ngáº¯n, nÃºt X há»§y, animation slide-down.
+- [`MessageItem.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/MessageItem.tsx) â€” ThÃªm quote block render khi cÃ³ `repliedMessage` (viá»n trÃ¡i xanh, ná»n nháº¡t, click scroll tá»›i tin gá»‘c). NÃºt reply icon xuáº¥t hiá»‡n khi hover á»Ÿ bÃªn cáº¡nh message bubble. Há»— trá»£ hiá»ƒn thá»‹ tÃªn sender tá»« participants list.
+- [`ChatBox.tsx`](file:///d:/ChatRealTime/client/src/features/chat/components/ChatBox.tsx) â€” TÃ­ch há»£p toÃ n bá»™ reply flow: láº¥y `replyingTo` tá»« store, render `<ReplyPreview>`, truyá»n `onReply`/`onScrollToMessage` xuá»‘ng `<MessageItem>`, gá»­i `replyPayload` khi submit.
+- [`index.css`](file:///d:/ChatRealTime/client/src/index.css) â€” ThÃªm CSS cho `.reply-preview-*`, `.reply-quote-*`, `.reply-action-*`, `.message-highlight-flash`, cÃ¡c keyframes `replySlideDown` vÃ  `highlightFlash`.
 
-### Kết quả kiểm tra
-- ✅ TypeScript type check: `tsc --noEmit` pass (exit code 0)
-- ✅ Server build: `gradlew build -x test` — BUILD SUCCESSFUL
+### Káº¿t quáº£ kiá»ƒm tra
+- âœ… TypeScript type check: `tsc --noEmit` pass (exit code 0)
+- âœ… Server build: `gradlew build -x test` â€” BUILD SUCCESSFUL
 
 ---
 
-## Cập nhật 18/08/2026 — Nâng cấp UX/UI toàn diện: Modern Glass Messenger
+## Cập nhật 20/08/2026 - Sửa lỗi hiển thị Typing Indicator
 
 ### Tổng quan
-Nâng cấp giao diện từ phong cách "Messenger clone cơ bản" lên **Modern Glass Messenger** — glassmorphism, gradient, micro-animations — mà **không thay đổi bất kỳ logic/behavior nào**.
+Khắc phục lỗi không hiển thị Typing Indicator khi người dùng gõ tin nhắn liên tục. Trước đó, cơ chế debounce (500ms) đã khiến sự kiện chat.typing liên tục bị huỷ (clearTimeout) nếu người dùng gõ phím quá nhanh mà không tạm nghỉ. Giải pháp là chuyển đổi logic debounce thành throttle (gửi ngay lập tức ở lần gõ đầu tiên và giãn cách tối đa 2 giây giữa các lần gửi nếu tiếp tục gõ) để đảm bảo trạng thái "đang nhập" được đồng bộ realtime chính xác.
 
 ### Các file đã thay đổi
 
-#### 1. `client/src/index.css` — Design System hoàn chỉnh
-- Thêm CSS custom properties (design tokens): bảng màu, surface, border, shadow, gradient, radius
-- Thêm glass effect utilities: `.glass`, `.glass-elevated`, `.glass-subtle`
-- Thêm gradient utilities: `.border-gradient-b`, `.border-gradient-r`, `.text-gradient`
-- Thêm `.chat-bg-pattern` (dot pattern cho vùng tin nhắn)
-- Thêm `.login-bg` (animated gradient background cho trang Login)
-- Thêm `.online-dot` (pulse animation cho trạng thái online)
-- Thêm animations mới: `float`, `fadeInUp`, `scaleIn`, `gradientShift`, `shimmer`, `blobFloat1/2`, `pulseOnline`
-- Cải thiện scrollbar styling
+#### 1. [MODIFY] client/src/features/chat/hooks/useTypingIndicator.ts
+- Bỏ logic setTimeout debounce 500ms.
+- Sửa hàm emitTyping để gửi payload qua WebSocket ngay lập tức.
+- Giữ lại cơ chế throttle (kiểm tra Date.now() - lastSentRef.current < 2000) để giảm tải cho server nhưng vẫn đảm bảo hiển thị typing mượt mà.
 
-#### 2. `client/src/App.css` — **ĐÃ XÓA**
-- File chứa CSS template Vite (`.hero`, `.counter`, `#center`...) hoàn toàn không được sử dụng
+## Cáº­p nháº­t 18/08/2026 â€” NÃ¢ng cáº¥p UX/UI toÃ n diá»‡n: Modern Glass Messenger
+
+### Tá»•ng quan
+NÃ¢ng cáº¥p giao diá»‡n tá»« phong cÃ¡ch "Messenger clone cÆ¡ báº£n" lÃªn **Modern Glass Messenger** â€” glassmorphism, gradient, micro-animations â€” mÃ  **khÃ´ng thay Ä‘á»•i báº¥t ká»³ logic/behavior nÃ o**.
+
+### CÃ¡c file Ä‘Ã£ thay Ä‘á»•i
+
+#### 1. `client/src/index.css` â€” Design System hoÃ n chá»‰nh
+- ThÃªm CSS custom properties (design tokens): báº£ng mÃ u, surface, border, shadow, gradient, radius
+- ThÃªm glass effect utilities: `.glass`, `.glass-elevated`, `.glass-subtle`
+- ThÃªm gradient utilities: `.border-gradient-b`, `.border-gradient-r`, `.text-gradient`
+- ThÃªm `.chat-bg-pattern` (dot pattern cho vÃ¹ng tin nháº¯n)
+- ThÃªm `.login-bg` (animated gradient background cho trang Login)
+- ThÃªm `.online-dot` (pulse animation cho tráº¡ng thÃ¡i online)
+- ThÃªm animations má»›i: `float`, `fadeInUp`, `scaleIn`, `gradientShift`, `shimmer`, `blobFloat1/2`, `pulseOnline`
+- Cáº£i thiá»‡n scrollbar styling
+
+#### 2. `client/src/App.css` â€” **ÄÃƒ XÃ“A**
+- File chá»©a CSS template Vite (`.hero`, `.counter`, `#center`...) hoÃ n toÃ n khÃ´ng Ä‘Æ°á»£c sá»­ dá»¥ng
 
 #### 3. `client/src/features/auth/components/Login.tsx`
-- Nền: animated gradient (`login-bg`) với floating blobs decorative
+- Ná»n: animated gradient (`login-bg`) vá»›i floating blobs decorative
 - Card: glass effect (`bg-white/85 backdrop-blur-xl border-white/30`)
-- Input: thêm placeholder text, focus glow effect (`ring-4 + shadow`)
+- Input: thÃªm placeholder text, focus glow effect (`ring-4 + shadow`)
 - Button: gradient accent (`from-[#0066ff] to-[#5c7cfa]`) + shadow glow
 
 #### 4. `client/src/features/chat/components/ConversationList.tsx`
-- Tiêu đề "Đoạn chat": gradient text effect (`.text-gradient`)
+- TiÃªu Ä‘á» "Äoáº¡n chat": gradient text effect (`.text-gradient`)
 - Search bar: glass effect (`bg-white/50 backdrop-blur-sm`)
-- Conversation items: hover `shadow-sm` + `active:scale-[0.99]`, active state có gradient accent bar bên phải
+- Conversation items: hover `shadow-sm` + `active:scale-[0.99]`, active state cÃ³ gradient accent bar bÃªn pháº£i
 - Online dot: pulse animation (`.online-dot`)
-- Empty state: icon `MessageCircle` + text tinh tế
+- Empty state: icon `MessageCircle` + text tinh táº¿
 
 #### 5. `client/src/features/chat/components/ChatBox.tsx`
-- Header: `glass-elevated` backdrop-blur, border gradient nhẹ
+- Header: `glass-elevated` backdrop-blur, border gradient nháº¹
 - Message area: dot pattern background (`chat-bg-pattern`)
-- Input area: `glass-elevated`, border gradient, send button gradient + shadow khi có text
-- Status text: đổi màu theo trạng thái (amber/emerald/slate)
+- Input area: `glass-elevated`, border gradient, send button gradient + shadow khi cÃ³ text
+- Status text: Ä‘á»•i mÃ u theo tráº¡ng thÃ¡i (amber/emerald/slate)
 - Empty state: gradient icon background + `animate-fade-in-up`
 
 #### 6. `client/src/features/chat/components/MessageItem.tsx`
-- Tin nhắn gửi đi: gradient xanh (`from-[#0066ff] to-[#4d7cff]`) + shadow tint
-- Tin nhắn bot: gradient tím nhạt + border indigo tinh tế
-- Tin nhắn đối phương: nền trắng + shadow + border siêu nhẹ
+- Tin nháº¯n gá»­i Ä‘i: gradient xanh (`from-[#0066ff] to-[#4d7cff]`) + shadow tint
+- Tin nháº¯n bot: gradient tÃ­m nháº¡t + border indigo tinh táº¿
+- Tin nháº¯n Ä‘á»‘i phÆ°Æ¡ng: ná»n tráº¯ng + shadow + border siÃªu nháº¹
 - Timestamp hover: `backdrop-blur-sm` + `bg-white/95`
-- Animation: `animate-fade-in-up` thay vì `animate-slide-up`
+- Animation: `animate-fade-in-up` thay vÃ¬ `animate-slide-up`
 
 #### 7. `client/src/App.tsx`
-- Nền app: gradient (`from-slate-100 via-blue-50/30 to-indigo-50/20`)
+- Ná»n app: gradient (`from-slate-100 via-blue-50/30 to-indigo-50/20`)
 - Sidebar: `glass-subtle`, footer `glass-elevated`
-- Border: gradient nhẹ thay vì solid `#e5e7eb`
+- Border: gradient nháº¹ thay vÃ¬ solid `#e5e7eb`
 - Empty state: `chat-bg-pattern` + `.text-gradient`
 - Camera icon: gradient (`from-[#0066ff] to-[#5c7cfa]`)
 
 #### 8. `client/src/features/chat/components/BotAvatar.tsx`
-- Gradient mở rộng: thêm tím `#7048e8`
+- Gradient má»Ÿ rá»™ng: thÃªm tÃ­m `#7048e8`
 - Shadow: `shadow-md shadow-blue-500/20`
-- Hiệu ứng: `animate-pulse-glow`
+- Hiá»‡u á»©ng: `animate-pulse-glow`
 
 #### 9. `client/src/features/chat/components/MentionSuggestions.tsx`
 - Glass dropdown: `bg-white/90 backdrop-blur-xl`
-- Bo tròn: `rounded-2xl`
+- Bo trÃ²n: `rounded-2xl`
 - Animation: `animate-scale-in`
 - Hover: shadow + scale
 
 #### 10. `client/src/features/profile/components/ProfileModal.tsx`
-- Backdrop: `backdrop-blur-md` (mạnh hơn)
+- Backdrop: `backdrop-blur-md` (máº¡nh hÆ¡n)
 - Card: `bg-white/95 backdrop-blur-xl border-white/50`
-- Animation: `animate-scale-in` khi mở
-- Button gradient nhất quán
+- Animation: `animate-scale-in` khi má»Ÿ
+- Button gradient nháº¥t quÃ¡n
 - Focus glow cho input
 
 ---
 
-## Cập nhật 17/08/2026
+## Cập nhật 20/08/2026 - Sửa lỗi hiển thị Typing Indicator
 
-## Tóm tắt những thay đổi
+### Tổng quan
+Khắc phục lỗi không hiển thị Typing Indicator khi người dùng gõ tin nhắn liên tục. Trước đó, cơ chế debounce (500ms) đã khiến sự kiện chat.typing liên tục bị huỷ (clearTimeout) nếu người dùng gõ phím quá nhanh mà không tạm nghỉ. Giải pháp là chuyển đổi logic debounce thành throttle (gửi ngay lập tức ở lần gõ đầu tiên và giãn cách tối đa 2 giây giữa các lần gửi nếu tiếp tục gõ) để đảm bảo trạng thái "đang nhập" được đồng bộ realtime chính xác.
 
-Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ chặt chẽ kiến trúc SOLID, Modular Monolith (Server) và Feature-Sliced (Client).
+### Các file đã thay đổi
 
-### Phía Server (Spring Boot)
-1. **Cấu hình Dependencies**: Cập nhật `build.gradle` để bổ sung các module thiết yếu (`spring-boot-starter-websocket`, `spring-boot-starter-security`, `jjwt` và `atmin-library:1.0.4.Beta`).
-2. **Bảo mật Kênh (Channel Security)**: Tạo `ChatSubscriptionSecurityConfig` để chặn đứng hành vi lấy ID người khác để "nghe lén" phòng chat thông qua lệnh `SUBSCRIBE` của STOMP.
+#### 1. [MODIFY] client/src/features/chat/hooks/useTypingIndicator.ts
+- Bỏ logic setTimeout debounce 500ms.
+- Sửa hàm emitTyping để gửi payload qua WebSocket ngay lập tức.
+- Giữ lại cơ chế throttle (kiểm tra Date.now() - lastSentRef.current < 2000) để giảm tải cho server nhưng vẫn đảm bảo hiển thị typing mượt mà.
+
+## Cáº­p nháº­t 17/08/2026
+
+## TÃ³m táº¯t nhá»¯ng thay Ä‘á»•i
+
+Triá»ƒn khai toÃ n diá»‡n há»‡ thá»‘ng Web Chat cÃ³ há»— trá»£ AI, tuÃ¢n thá»§ cháº·t cháº½ kiáº¿n trÃºc SOLID, Modular Monolith (Server) vÃ  Feature-Sliced (Client).
+
+### PhÃ­a Server (Spring Boot)
+1. **Cáº¥u hÃ¬nh Dependencies**: Cáº­p nháº­t `build.gradle` Ä‘á»ƒ bá»• sung cÃ¡c module thiáº¿t yáº¿u (`spring-boot-starter-websocket`, `spring-boot-starter-security`, `jjwt` vÃ  `atmin-library:1.0.4.Beta`).
+2. **Báº£o máº­t KÃªnh (Channel Security)**: Táº¡o `ChatSubscriptionSecurityConfig` Ä‘á»ƒ cháº·n Ä‘á»©ng hÃ nh vi láº¥y ID ngÆ°á»i khÃ¡c Ä‘á»ƒ "nghe lÃ©n" phÃ²ng chat thÃ´ng qua lá»‡nh `SUBSCRIBE` cá»§a STOMP.
 3. **Module Chat Core**:
-   - `Entity` & `Repository`: Thiết lập cơ sở dữ liệu cho `User`, `Conversation`, `Message`.
-   - `DTO`: Xây dựng cấu trúc gửi nhận dữ liệu chuẩn `MessageRequest`, `MessageResponse`.
-   - `ChatService` & `ChatServiceImpl`: Xử lý lưu tin nhắn, kiểm tra phòng chat và phát tín hiệu (broadcast) real-time bằng `SimpMessagingTemplate`.
-   - `ChatController` & `WebSocketChatController`: Cung cấp điểm chạm API REST lấy lịch sử và `@MessageMapping` cho WebSockets.
-4. **Presence Manager**: Triển khai trình quản lý trạng thái Online/Offline, tích hợp bộ hẹn giờ (ScheduledExecutorService) trễ 5 giây để triệt tiêu hiệu ứng nhấp nháy UI khi F5 trình duyệt.
-5. **Spring AI (@CloseFriend)**: Tạo `CloseFriendAiService` chạy ngầm (`@Async`) với Transaction tách biệt nhằm gọi API Gemini không gây nghẽn kết nối Database.
+   - `Entity` & `Repository`: Thiáº¿t láº­p cÆ¡ sá»Ÿ dá»¯ liá»‡u cho `User`, `Conversation`, `Message`.
+   - `DTO`: XÃ¢y dá»±ng cáº¥u trÃºc gá»­i nháº­n dá»¯ liá»‡u chuáº©n `MessageRequest`, `MessageResponse`.
+   - `ChatService` & `ChatServiceImpl`: Xá»­ lÃ½ lÆ°u tin nháº¯n, kiá»ƒm tra phÃ²ng chat vÃ  phÃ¡t tÃ­n hiá»‡u (broadcast) real-time báº±ng `SimpMessagingTemplate`.
+   - `ChatController` & `WebSocketChatController`: Cung cáº¥p Ä‘iá»ƒm cháº¡m API REST láº¥y lá»‹ch sá»­ vÃ  `@MessageMapping` cho WebSockets.
+4. **Presence Manager**: Triá»ƒn khai trÃ¬nh quáº£n lÃ½ tráº¡ng thÃ¡i Online/Offline, tÃ­ch há»£p bá»™ háº¹n giá» (ScheduledExecutorService) trá»… 5 giÃ¢y Ä‘á»ƒ triá»‡t tiÃªu hiá»‡u á»©ng nháº¥p nhÃ¡y UI khi F5 trÃ¬nh duyá»‡t.
+5. **Spring AI (@CloseFriend)**: Táº¡o `CloseFriendAiService` cháº¡y ngáº§m (`@Async`) vá»›i Transaction tÃ¡ch biá»‡t nháº±m gá»i API Gemini khÃ´ng gÃ¢y ngháº½n káº¿t ná»‘i Database.
 
-### Phía Client (React / Vite)
-1. **Kiến trúc Feature-Sliced**: Chia cắt mã nguồn UI mạch lạc tại `features/chat`.
-2. **State Management**: Sử dụng `zustand` (`useChatStore`) để quản lý phòng chat đang chọn trên toàn cục.
-3. **Mạng (Network) & WebSocket**: 
-   - Tạo Axios client (`api.ts`).
-   - Viết hook cực kỳ mạnh mẽ `useChatWebSocket` kết hợp SockJS & StompJS để điều phối gửi tin, xử lý Optimistic Update (giả ID để hiện tin nhắn ngay lập tức) và Read Receipts (Đã đọc chéo ID).
-4. **Giao diện (UI)**: Code 100% bằng Tailwind CSS.
-   - 🎨 Sử dụng hiệu ứng `glassmorphism` (backdrop-blur).
-   - ✨ Phân tách màu sắc, bong bóng chat riêng (tím) cho bot `@CloseFriend`.
-   - 😎 Gradient hiện đại theo phong cách thiết kế Premium.
+### PhÃ­a Client (React / Vite)
+1. **Kiáº¿n trÃºc Feature-Sliced**: Chia cáº¯t mÃ£ nguá»“n UI máº¡ch láº¡c táº¡i `features/chat`.
+2. **State Management**: Sá»­ dá»¥ng `zustand` (`useChatStore`) Ä‘á»ƒ quáº£n lÃ½ phÃ²ng chat Ä‘ang chá»n trÃªn toÃ n cá»¥c.
+3. **Máº¡ng (Network) & WebSocket**: 
+   - Táº¡o Axios client (`api.ts`).
+   - Viáº¿t hook cá»±c ká»³ máº¡nh máº½ `useChatWebSocket` káº¿t há»£p SockJS & StompJS Ä‘á»ƒ Ä‘iá»u phá»‘i gá»­i tin, xá»­ lÃ½ Optimistic Update (giáº£ ID Ä‘á»ƒ hiá»‡n tin nháº¯n ngay láº­p tá»©c) vÃ  Read Receipts (ÄÃ£ Ä‘á»c chÃ©o ID).
+4. **Giao diá»‡n (UI)**: Code 100% báº±ng Tailwind CSS.
+   - ðŸŽ¨ Sá»­ dá»¥ng hiá»‡u á»©ng `glassmorphism` (backdrop-blur).
+   - âœ¨ PhÃ¢n tÃ¡ch mÃ u sáº¯c, bong bÃ³ng chat riÃªng (tÃ­m) cho bot `@CloseFriend`.
+   - ðŸ˜Ž Gradient hiá»‡n Ä‘áº¡i theo phong cÃ¡ch thiáº¿t káº¿ Premium.
 
-### Sửa Lỗi (Bug Fixes)
-- **Cập nhật ngày**: 17/08/2026
-- **Client (Tailwind CSS)**: Cập nhật cú pháp khai báo trong file `index.css` để tương thích chuẩn Tailwind v4 (sử dụng `@import "tailwindcss";` thay vì `@tailwind base/components/utilities`), khắc phục dứt điểm lỗi Vite không build được do không nhận diện được utility class (như `bg-gray-50`).
-- **Client (TypeScript/Vite)**: Khắc phục lỗi `Uncaught SyntaxError: does not provide an export named` khi Vite (esbuild) biên dịch. Chuyển đổi toàn bộ các câu lệnh import interface (như `Message`, `Conversation`) từ store sang định dạng `import type { ... }`. Điều này giúp trình biên dịch nhận diện chính xác đây là các kiểu dữ liệu và loại bỏ an toàn khỏi mã JavaScript lúc chạy (runtime), tránh gây lỗi crash ứng dụng.
-- **Client (Vite/SockJS)**: Xử lý triệt để lỗi runtime `Uncaught ReferenceError: global is not defined` trên trình duyệt. Lỗi này do thư viện `sockjs-client` mặc định tìm kiếm biến `global` của môi trường Node.js. Khắc phục bằng cách cấu hình `define: { global: 'window' }` bên trong file `vite.config.ts` nhằm cung cấp polyfill phù hợp cho môi trường browser.
-- **Xác thực toàn diện (Full Authentication Flow)**: Thay thế luồng xác thực "giả" bằng cơ chế xác thực JWT kết nối Database thực tế.
+### Sá»­a Lá»—i (Bug Fixes)
+- **Cáº­p nháº­t ngÃ y**: 17/08/2026
+- **Client (Tailwind CSS)**: Cáº­p nháº­t cÃº phÃ¡p khai bÃ¡o trong file `index.css` Ä‘á»ƒ tÆ°Æ¡ng thÃ­ch chuáº©n Tailwind v4 (sá»­ dá»¥ng `@import "tailwindcss";` thay vÃ¬ `@tailwind base/components/utilities`), kháº¯c phá»¥c dá»©t Ä‘iá»ƒm lá»—i Vite khÃ´ng build Ä‘Æ°á»£c do khÃ´ng nháº­n diá»‡n Ä‘Æ°á»£c utility class (nhÆ° `bg-gray-50`).
+- **Client (TypeScript/Vite)**: Kháº¯c phá»¥c lá»—i `Uncaught SyntaxError: does not provide an export named` khi Vite (esbuild) biÃªn dá»‹ch. Chuyá»ƒn Ä‘á»•i toÃ n bá»™ cÃ¡c cÃ¢u lá»‡nh import interface (nhÆ° `Message`, `Conversation`) tá»« store sang Ä‘á»‹nh dáº¡ng `import type { ... }`. Äiá»u nÃ y giÃºp trÃ¬nh biÃªn dá»‹ch nháº­n diá»‡n chÃ­nh xÃ¡c Ä‘Ã¢y lÃ  cÃ¡c kiá»ƒu dá»¯ liá»‡u vÃ  loáº¡i bá» an toÃ n khá»i mÃ£ JavaScript lÃºc cháº¡y (runtime), trÃ¡nh gÃ¢y lá»—i crash á»©ng dá»¥ng.
+- **Client (Vite/SockJS)**: Xá»­ lÃ½ triá»‡t Ä‘á»ƒ lá»—i runtime `Uncaught ReferenceError: global is not defined` trÃªn trÃ¬nh duyá»‡t. Lá»—i nÃ y do thÆ° viá»‡n `sockjs-client` máº·c Ä‘á»‹nh tÃ¬m kiáº¿m biáº¿n `global` cá»§a mÃ´i trÆ°á»ng Node.js. Kháº¯c phá»¥c báº±ng cÃ¡ch cáº¥u hÃ¬nh `define: { global: 'window' }` bÃªn trong file `vite.config.ts` nháº±m cung cáº¥p polyfill phÃ¹ há»£p cho mÃ´i trÆ°á»ng browser.
+- **XÃ¡c thá»±c toÃ n diá»‡n (Full Authentication Flow)**: Thay tháº¿ luá»“ng xÃ¡c thá»±c "giáº£" báº±ng cÆ¡ cháº¿ xÃ¡c thá»±c JWT káº¿t ná»‘i Database thá»±c táº¿.
   - **Server**: 
-    - Bổ sung `username`, `password`, `status` (`UserStatus`) vào entity `User`.
-    - Viết `DatabaseSeeder` tự động sinh 2 tài khoản (user123, atmin123) kèm mật khẩu đã mã hóa (BCrypt) và phòng chat mẫu khi Server khởi động.
-    - Phát triển API `/api/v1/auth/login` để cấp JWT hợp lệ.
-    - Xóa bỏ bypass bảo mật trong `WebSocketConfig` để chặn hoàn toàn kết nối Stomp nặc danh.
+    - Bá»• sung `username`, `password`, `status` (`UserStatus`) vÃ o entity `User`.
+    - Viáº¿t `DatabaseSeeder` tá»± Ä‘á»™ng sinh 2 tÃ i khoáº£n (user123, atmin123) kÃ¨m máº­t kháº©u Ä‘Ã£ mÃ£ hÃ³a (BCrypt) vÃ  phÃ²ng chat máº«u khi Server khá»Ÿi Ä‘á»™ng.
+    - PhÃ¡t triá»ƒn API `/api/v1/auth/login` Ä‘á»ƒ cáº¥p JWT há»£p lá»‡.
+    - XÃ³a bá» bypass báº£o máº­t trong `WebSocketConfig` Ä‘á»ƒ cháº·n hoÃ n toÃ n káº¿t ná»‘i Stomp náº·c danh.
   - **Client**: 
-    - Phát triển màn hình `Login.tsx` cao cấp (UI Glassmorphism, không cho phép đăng ký mới).
-    - Tạo `useAuthStore` (Zustand) để lưu `token` và `currentUser` (kết hợp `localStorage`).
-    - Cập nhật axios interceptor trong `api.ts` tự động chèn token, và `App.tsx` tự động chuyển đổi view Đăng nhập/Chat dựa trên state hiện tại.
-- **Client (React/TypeScript)**: Sửa lỗi TS1484 trong `useChatWebSocket.ts` bằng cách sử dụng `import type` cho `IMessage`, giúp ứng dụng build thành công khi bật `verbatimModuleSyntax`.
-- **Client (Debounce API /read)**: Triển khai thành công logic Debounce bằng `setTimeout` (1 giây) vào chức năng `markAsRead` trong `useChatWebSocket.ts` để ngăn chặn việc spam API liên tục khi nhận nhiều tin nhắn mới, đúng theo thiết kế.
-- **Server (PresenceManager)**: Sửa lỗi logic gửi nhầm sự kiện `online=true` khi người dùng nhấn F5/Reload trang. Giờ đây, nếu kết nối lại trong vòng 5 giây (huỷ lịch offline thành công), Server sẽ không broadcast trạng thái online dư thừa nữa.
+    - PhÃ¡t triá»ƒn mÃ n hÃ¬nh `Login.tsx` cao cáº¥p (UI Glassmorphism, khÃ´ng cho phÃ©p Ä‘Äƒng kÃ½ má»›i).
+    - Táº¡o `useAuthStore` (Zustand) Ä‘á»ƒ lÆ°u `token` vÃ  `currentUser` (káº¿t há»£p `localStorage`).
+    - Cáº­p nháº­t axios interceptor trong `api.ts` tá»± Ä‘á»™ng chÃ¨n token, vÃ  `App.tsx` tá»± Ä‘á»™ng chuyá»ƒn Ä‘á»•i view ÄÄƒng nháº­p/Chat dá»±a trÃªn state hiá»‡n táº¡i.
+- **Client (React/TypeScript)**: Sá»­a lá»—i TS1484 trong `useChatWebSocket.ts` báº±ng cÃ¡ch sá»­ dá»¥ng `import type` cho `IMessage`, giÃºp á»©ng dá»¥ng build thÃ nh cÃ´ng khi báº­t `verbatimModuleSyntax`.
+- **Client (Debounce API /read)**: Triá»ƒn khai thÃ nh cÃ´ng logic Debounce báº±ng `setTimeout` (1 giÃ¢y) vÃ o chá»©c nÄƒng `markAsRead` trong `useChatWebSocket.ts` Ä‘á»ƒ ngÄƒn cháº·n viá»‡c spam API liÃªn tá»¥c khi nháº­n nhiá»u tin nháº¯n má»›i, Ä‘Ãºng theo thiáº¿t káº¿.
+- **Server (PresenceManager)**: Sá»­a lá»—i logic gá»­i nháº§m sá»± kiá»‡n `online=true` khi ngÆ°á»i dÃ¹ng nháº¥n F5/Reload trang. Giá» Ä‘Ã¢y, náº¿u káº¿t ná»‘i láº¡i trong vÃ²ng 5 giÃ¢y (huá»· lá»‹ch offline thÃ nh cÃ´ng), Server sáº½ khÃ´ng broadcast tráº¡ng thÃ¡i online dÆ° thá»«a ná»¯a.
 
-### Cải Tiến Kiến Trúc (Architecture Improvements)
-- **Cập nhật ngày**: 17/08/2026
-- **Kiến trúc Đăng nhập Stateless JWT (Không phiên)**: Áp dụng triệt để kiến trúc bảo mật từ dự án Holiday.
+### Cáº£i Tiáº¿n Kiáº¿n TrÃºc (Architecture Improvements)
+- **Cáº­p nháº­t ngÃ y**: 17/08/2026
+- **Kiáº¿n trÃºc ÄÄƒng nháº­p Stateless JWT (KhÃ´ng phiÃªn)**: Ãp dá»¥ng triá»‡t Ä‘á»ƒ kiáº¿n trÃºc báº£o máº­t tá»« dá»± Ã¡n Holiday.
   - **Server (Spring Boot)**: 
-    - Bổ sung khả năng sinh và xác thực `refresh_token` trong `JwtProvider`.
-    - Cập nhật `AuthController` để trả về `refresh_token` thông qua **HttpOnly Cookie** thay vì JSON body, ngăn chặn hoàn toàn tấn công XSS từ phía Client.
-    - Xây dựng API `/refresh` ngầm để cấp lại `access_token` mới và `/logout` để chủ động xóa Cookie.
+    - Bá»• sung kháº£ nÄƒng sinh vÃ  xÃ¡c thá»±c `refresh_token` trong `JwtProvider`.
+    - Cáº­p nháº­t `AuthController` Ä‘á»ƒ tráº£ vá» `refresh_token` thÃ´ng qua **HttpOnly Cookie** thay vÃ¬ JSON body, ngÄƒn cháº·n hoÃ n toÃ n táº¥n cÃ´ng XSS tá»« phÃ­a Client.
+    - XÃ¢y dá»±ng API `/refresh` ngáº§m Ä‘á»ƒ cáº¥p láº¡i `access_token` má»›i vÃ  `/logout` Ä‘á»ƒ chá»§ Ä‘á»™ng xÃ³a Cookie.
   - **Client (React)**: 
-    - Cập nhật `useAuthStore` loại bỏ hoàn toàn việc lưu trữ `token` trong `localStorage`, chỉ lưu trên memory (RAM).
-    - Triển khai thành công **Silent Refresh (AuthInit)** bọc ngoài ứng dụng, tự động làm mới token ngầm khi khởi động để tránh nháy trang.
-    - Cài đặt **Axios Interceptor Queue** siêu mạnh mẽ trong `api.ts`: Bắt giữ lỗi `401 Unauthorized`, tạm dừng toàn bộ các request, đưa vào hàng đợi (`failedQueue`), tự động gọi API `/refresh`, và `replay` lại toàn bộ queue khi refresh thành công mà người dùng không hề hay biết.
-- **Bảo mật (Security)**: Khởi tạo file `.gitignore` ở cấp độ thư mục gốc (root) nhằm ngăn chặn rủi ro rò rỉ các tệp cấu hình bí mật, khóa (keys, `.pem`, `.crt`), môi trường (`.env`) và thông tin đăng nhập lên kho lưu trữ mã nguồn (Repository).
+    - Cáº­p nháº­t `useAuthStore` loáº¡i bá» hoÃ n toÃ n viá»‡c lÆ°u trá»¯ `token` trong `localStorage`, chá»‰ lÆ°u trÃªn memory (RAM).
+    - Triá»ƒn khai thÃ nh cÃ´ng **Silent Refresh (AuthInit)** bá»c ngoÃ i á»©ng dá»¥ng, tá»± Ä‘á»™ng lÃ m má»›i token ngáº§m khi khá»Ÿi Ä‘á»™ng Ä‘á»ƒ trÃ¡nh nhÃ¡y trang.
+    - CÃ i Ä‘áº·t **Axios Interceptor Queue** siÃªu máº¡nh máº½ trong `api.ts`: Báº¯t giá»¯ lá»—i `401 Unauthorized`, táº¡m dá»«ng toÃ n bá»™ cÃ¡c request, Ä‘Æ°a vÃ o hÃ ng Ä‘á»£i (`failedQueue`), tá»± Ä‘á»™ng gá»i API `/refresh`, vÃ  `replay` láº¡i toÃ n bá»™ queue khi refresh thÃ nh cÃ´ng mÃ  ngÆ°á»i dÃ¹ng khÃ´ng há» hay biáº¿t.
+- **Báº£o máº­t (Security)**: Khá»Ÿi táº¡o file `.gitignore` á»Ÿ cáº¥p Ä‘á»™ thÆ° má»¥c gá»‘c (root) nháº±m ngÄƒn cháº·n rá»§i ro rÃ² rá»‰ cÃ¡c tá»‡p cáº¥u hÃ¬nh bÃ­ máº­t, khÃ³a (keys, `.pem`, `.crt`), mÃ´i trÆ°á»ng (`.env`) vÃ  thÃ´ng tin Ä‘Äƒng nháº­p lÃªn kho lÆ°u trá»¯ mÃ£ nguá»“n (Repository).
 
-## Hoàn thiện trò chuyện riêng tư giữa hai tài khoản
+## HoÃ n thiá»‡n trÃ² chuyá»‡n riÃªng tÆ° giá»¯a hai tÃ i khoáº£n
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-### Nội dung triển khai
+### Ná»™i dung triá»ƒn khai
 
-- Chuyển giao diện từ “Phòng Chat Demo” sang một cuộc trò chuyện riêng tư thực sự giữa `user123` và `atmin123`. Tên hiển thị luôn được suy ra từ người còn lại, không còn dùng tên phòng chung hoặc lấy nhầm người đang đăng nhập.
-- Tự động mở cuộc trò chuyện duy nhất sau khi đăng nhập; bổ sung trạng thái rỗng rõ ràng nếu dữ liệu hai người chưa được khởi tạo.
-- Tạo hai ảnh đại diện SVG riêng tại `client/public/avatars/` và hiển thị đồng nhất ở thanh tài khoản, danh sách trò chuyện, tiêu đề và từng bong bóng tin nhắn.
-- Bổ sung `ConversationResponse` và `ParticipantResponse` để API chỉ trả đúng dữ liệu giao diện cần dùng, không trả trực tiếp thực thể cơ sở dữ liệu.
-- Đồng bộ dữ liệu khởi tạo để cuộc trò chuyện luôn có đúng hai thành viên, không mang tên demo và hai tài khoản luôn nhận đúng đường dẫn ảnh đại diện kể cả khi cơ sở dữ liệu đã tồn tại từ trước.
-- Nâng cấp gửi tin lạc quan bằng `clientMessageId` chuẩn UUID. Phản hồi WebSocket giờ ghép chính xác với tin tạm tương ứng, kể cả khi người dùng gửi nhiều tin có nội dung giống nhau.
-- Giới hạn nội dung tối đa 4.000 ký tự ở cả Client và Server; nội dung được loại bỏ khoảng trắng thừa trước khi lưu.
-- Lưu trạng thái `READ` thật sự vào cơ sở dữ liệu khi người nhận mở cuộc trò chuyện, đồng thời tiếp tục phát biên nhận đã đọc theo thời gian thực cho người gửi.
-- Bổ sung trạng thái mất kết nối/kết nối lại, khóa nút gửi khi WebSocket chưa sẵn sàng và giữ nguyên nội dung đang soạn nếu gửi chưa thành công.
-- Thêm cơ sở dữ liệu H2 chỉ dành cho kiểm thử để bộ kiểm thử Server không phụ thuộc vào tài khoản MySQL của môi trường phát triển.
+- Chuyá»ƒn giao diá»‡n tá»« â€œPhÃ²ng Chat Demoâ€ sang má»™t cuá»™c trÃ² chuyá»‡n riÃªng tÆ° thá»±c sá»± giá»¯a `user123` vÃ  `atmin123`. TÃªn hiá»ƒn thá»‹ luÃ´n Ä‘Æ°á»£c suy ra tá»« ngÆ°á»i cÃ²n láº¡i, khÃ´ng cÃ²n dÃ¹ng tÃªn phÃ²ng chung hoáº·c láº¥y nháº§m ngÆ°á»i Ä‘ang Ä‘Äƒng nháº­p.
+- Tá»± Ä‘á»™ng má»Ÿ cuá»™c trÃ² chuyá»‡n duy nháº¥t sau khi Ä‘Äƒng nháº­p; bá»• sung tráº¡ng thÃ¡i rá»—ng rÃµ rÃ ng náº¿u dá»¯ liá»‡u hai ngÆ°á»i chÆ°a Ä‘Æ°á»£c khá»Ÿi táº¡o.
+- Táº¡o hai áº£nh Ä‘áº¡i diá»‡n SVG riÃªng táº¡i `client/public/avatars/` vÃ  hiá»ƒn thá»‹ Ä‘á»“ng nháº¥t á»Ÿ thanh tÃ i khoáº£n, danh sÃ¡ch trÃ² chuyá»‡n, tiÃªu Ä‘á» vÃ  tá»«ng bong bÃ³ng tin nháº¯n.
+- Bá»• sung `ConversationResponse` vÃ  `ParticipantResponse` Ä‘á»ƒ API chá»‰ tráº£ Ä‘Ãºng dá»¯ liá»‡u giao diá»‡n cáº§n dÃ¹ng, khÃ´ng tráº£ trá»±c tiáº¿p thá»±c thá»ƒ cÆ¡ sá»Ÿ dá»¯ liá»‡u.
+- Äá»“ng bá»™ dá»¯ liá»‡u khá»Ÿi táº¡o Ä‘á»ƒ cuá»™c trÃ² chuyá»‡n luÃ´n cÃ³ Ä‘Ãºng hai thÃ nh viÃªn, khÃ´ng mang tÃªn demo vÃ  hai tÃ i khoáº£n luÃ´n nháº­n Ä‘Ãºng Ä‘Æ°á»ng dáº«n áº£nh Ä‘áº¡i diá»‡n ká»ƒ cáº£ khi cÆ¡ sá»Ÿ dá»¯ liá»‡u Ä‘Ã£ tá»“n táº¡i tá»« trÆ°á»›c.
+- NÃ¢ng cáº¥p gá»­i tin láº¡c quan báº±ng `clientMessageId` chuáº©n UUID. Pháº£n há»“i WebSocket giá» ghÃ©p chÃ­nh xÃ¡c vá»›i tin táº¡m tÆ°Æ¡ng á»©ng, ká»ƒ cáº£ khi ngÆ°á»i dÃ¹ng gá»­i nhiá»u tin cÃ³ ná»™i dung giá»‘ng nhau.
+- Giá»›i háº¡n ná»™i dung tá»‘i Ä‘a 4.000 kÃ½ tá»± á»Ÿ cáº£ Client vÃ  Server; ná»™i dung Ä‘Æ°á»£c loáº¡i bá» khoáº£ng tráº¯ng thá»«a trÆ°á»›c khi lÆ°u.
+- LÆ°u tráº¡ng thÃ¡i `READ` tháº­t sá»± vÃ o cÆ¡ sá»Ÿ dá»¯ liá»‡u khi ngÆ°á»i nháº­n má»Ÿ cuá»™c trÃ² chuyá»‡n, Ä‘á»“ng thá»i tiáº¿p tá»¥c phÃ¡t biÃªn nháº­n Ä‘Ã£ Ä‘á»c theo thá»i gian thá»±c cho ngÆ°á»i gá»­i.
+- Bá»• sung tráº¡ng thÃ¡i máº¥t káº¿t ná»‘i/káº¿t ná»‘i láº¡i, khÃ³a nÃºt gá»­i khi WebSocket chÆ°a sáºµn sÃ ng vÃ  giá»¯ nguyÃªn ná»™i dung Ä‘ang soáº¡n náº¿u gá»­i chÆ°a thÃ nh cÃ´ng.
+- ThÃªm cÆ¡ sá»Ÿ dá»¯ liá»‡u H2 chá»‰ dÃ nh cho kiá»ƒm thá»­ Ä‘á»ƒ bá»™ kiá»ƒm thá»­ Server khÃ´ng phá»¥ thuá»™c vÃ o tÃ i khoáº£n MySQL cá»§a mÃ´i trÆ°á»ng phÃ¡t triá»ƒn.
 
-### Tệp chính đã thay đổi
+### Tá»‡p chÃ­nh Ä‘Ã£ thay Ä‘á»•i
 
-- Client: `App.tsx`, `ConversationList.tsx`, `ChatBox.tsx`, `MessageItem.tsx`, `UserAvatar.tsx`, `useChatWebSocket.ts`, `useChatStore.ts`, `AuthInit.tsx` và hai tệp ảnh trong `public/avatars/`.
-- Server: `DatabaseSeeder.java`, các DTO cuộc trò chuyện/tin nhắn, `Message.java`, `MessageRepository.java`, `ChatServiceImpl.java`, `ChatController.java`, `build.gradle` và `src/test/resources/application.yml`.
+- Client: `App.tsx`, `ConversationList.tsx`, `ChatBox.tsx`, `MessageItem.tsx`, `UserAvatar.tsx`, `useChatWebSocket.ts`, `useChatStore.ts`, `AuthInit.tsx` vÃ  hai tá»‡p áº£nh trong `public/avatars/`.
+- Server: `DatabaseSeeder.java`, cÃ¡c DTO cuá»™c trÃ² chuyá»‡n/tin nháº¯n, `Message.java`, `MessageRepository.java`, `ChatServiceImpl.java`, `ChatController.java`, `build.gradle` vÃ  `src/test/resources/application.yml`.
 
-### Kết quả kiểm tra
+### Káº¿t quáº£ kiá»ƒm tra
 
-- Client: lint không còn cảnh báo; TypeScript biên dịch thành công; Vite tạo bản dựng production thành công.
-- Server: `compileJava` thành công và toàn bộ bộ kiểm thử Gradle hoàn tất với trạng thái `BUILD SUCCESSFUL`.
+- Client: lint khÃ´ng cÃ²n cáº£nh bÃ¡o; TypeScript biÃªn dá»‹ch thÃ nh cÃ´ng; Vite táº¡o báº£n dá»±ng production thÃ nh cÃ´ng.
+- Server: `compileJava` thÃ nh cÃ´ng vÃ  toÃ n bá»™ bá»™ kiá»ƒm thá»­ Gradle hoÃ n táº¥t vá»›i tráº¡ng thÃ¡i `BUILD SUCCESSFUL`.
 
-## Tích hợp chức năng đổi ảnh đại diện từ dự án Holiday
+## TÃ­ch há»£p chá»©c nÄƒng Ä‘á»•i áº£nh Ä‘áº¡i diá»‡n tá»« dá»± Ã¡n Holiday
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-### Nội dung triển khai
+### Ná»™i dung triá»ƒn khai
 
-- Chuyển luồng đổi ảnh từ Holiday sang ChatRealTime: người dùng nhấn biểu tượng camera tại tài khoản hiện tại, chọn ảnh, xem trước và xác nhận trước khi tải lên.
-- Tạo feature Client độc lập `features/profile` gồm giao diện `AvatarUploadModal`, hook quản lý tải ảnh và service gọi API multipart; giao diện có trạng thái đang tải, thông báo thành công/thất bại, đóng bằng phím Escape và hỗ trợ thao tác bàn phím.
-- Kiểm tra tệp ở cả Client và Server: chỉ cho phép PNG/JPG/JPEG, tối đa 5 MB, ảnh tối đa 4096 × 4096 pixel; Server đọc nội dung ảnh thật thay vì chỉ tin tên tệp hoặc MIME do trình duyệt gửi lên.
-- Tích hợp module Media theo kiến trúc của Holiday với `MediaUploadService` và bản triển khai Cloudinary. Ảnh được lưu theo tài khoản trong thư mục `chat-realtime/avatars`, cho phép ghi đè và làm mới bộ nhớ đệm an toàn.
-- Bổ sung API bảo mật `POST /api/v1/users/me/avatar`; mã người dùng luôn lấy từ JWT, không cho Client truyền ID để đổi ảnh của tài khoản khác.
-- Sau khi cập nhật, Server phát sự kiện `/topic/profile-updates`. Hai cửa sổ chat cập nhật avatar mới ngay lập tức ở thanh tài khoản, danh sách người chat, tiêu đề và bong bóng tin nhắn mà không cần tải lại trang.
-- Sửa `DatabaseSeeder` để chỉ gán avatar mặc định khi tài khoản chưa có ảnh, tránh ghi đè ảnh Cloudinary mỗi lần khởi động Server.
-- Bổ sung `server/.env.example`, hỗ trợ tự đọc `server/.env`, cấu hình giới hạn multipart và hướng dẫn ba biến Cloudinary cần thiết trong `Instructions_for_use.md`.
+- Chuyá»ƒn luá»“ng Ä‘á»•i áº£nh tá»« Holiday sang ChatRealTime: ngÆ°á»i dÃ¹ng nháº¥n biá»ƒu tÆ°á»£ng camera táº¡i tÃ i khoáº£n hiá»‡n táº¡i, chá»n áº£nh, xem trÆ°á»›c vÃ  xÃ¡c nháº­n trÆ°á»›c khi táº£i lÃªn.
+- Táº¡o feature Client Ä‘á»™c láº­p `features/profile` gá»“m giao diá»‡n `AvatarUploadModal`, hook quáº£n lÃ½ táº£i áº£nh vÃ  service gá»i API multipart; giao diá»‡n cÃ³ tráº¡ng thÃ¡i Ä‘ang táº£i, thÃ´ng bÃ¡o thÃ nh cÃ´ng/tháº¥t báº¡i, Ä‘Ã³ng báº±ng phÃ­m Escape vÃ  há»— trá»£ thao tÃ¡c bÃ n phÃ­m.
+- Kiá»ƒm tra tá»‡p á»Ÿ cáº£ Client vÃ  Server: chá»‰ cho phÃ©p PNG/JPG/JPEG, tá»‘i Ä‘a 5 MB, áº£nh tá»‘i Ä‘a 4096 Ã— 4096 pixel; Server Ä‘á»c ná»™i dung áº£nh tháº­t thay vÃ¬ chá»‰ tin tÃªn tá»‡p hoáº·c MIME do trÃ¬nh duyá»‡t gá»­i lÃªn.
+- TÃ­ch há»£p module Media theo kiáº¿n trÃºc cá»§a Holiday vá»›i `MediaUploadService` vÃ  báº£n triá»ƒn khai Cloudinary. áº¢nh Ä‘Æ°á»£c lÆ°u theo tÃ i khoáº£n trong thÆ° má»¥c `chat-realtime/avatars`, cho phÃ©p ghi Ä‘Ã¨ vÃ  lÃ m má»›i bá»™ nhá»› Ä‘á»‡m an toÃ n.
+- Bá»• sung API báº£o máº­t `POST /api/v1/users/me/avatar`; mÃ£ ngÆ°á»i dÃ¹ng luÃ´n láº¥y tá»« JWT, khÃ´ng cho Client truyá»n ID Ä‘á»ƒ Ä‘á»•i áº£nh cá»§a tÃ i khoáº£n khÃ¡c.
+- Sau khi cáº­p nháº­t, Server phÃ¡t sá»± kiá»‡n `/topic/profile-updates`. Hai cá»­a sá»• chat cáº­p nháº­t avatar má»›i ngay láº­p tá»©c á»Ÿ thanh tÃ i khoáº£n, danh sÃ¡ch ngÆ°á»i chat, tiÃªu Ä‘á» vÃ  bong bÃ³ng tin nháº¯n mÃ  khÃ´ng cáº§n táº£i láº¡i trang.
+- Sá»­a `DatabaseSeeder` Ä‘á»ƒ chá»‰ gÃ¡n avatar máº·c Ä‘á»‹nh khi tÃ i khoáº£n chÆ°a cÃ³ áº£nh, trÃ¡nh ghi Ä‘Ã¨ áº£nh Cloudinary má»—i láº§n khá»Ÿi Ä‘á»™ng Server.
+- Bá»• sung `server/.env.example`, há»— trá»£ tá»± Ä‘á»c `server/.env`, cáº¥u hÃ¬nh giá»›i háº¡n multipart vÃ  hÆ°á»›ng dáº«n ba biáº¿n Cloudinary cáº§n thiáº¿t trong `Instructions_for_use.md`.
 
-### Tệp chính đã thay đổi
+### Tá»‡p chÃ­nh Ä‘Ã£ thay Ä‘á»•i
 
-- Client: `App.tsx`, `features/profile/**`, `useAuthStore.ts`, `useChatStore.ts`, `useChatWebSocket.ts` và public API của feature Chat.
-- Server: `modules/media/**`, `UserProfileController.java`, `UserProfileService.java`, `UserProfileServiceImpl.java`, các DTO hồ sơ, `DatabaseSeeder.java`, `application.yml`, `application-cloud.yml`, `.env.example`, `build.gradle` và `Instructions_for_use.md`.
+- Client: `App.tsx`, `features/profile/**`, `useAuthStore.ts`, `useChatStore.ts`, `useChatWebSocket.ts` vÃ  public API cá»§a feature Chat.
+- Server: `modules/media/**`, `UserProfileController.java`, `UserProfileService.java`, `UserProfileServiceImpl.java`, cÃ¡c DTO há»“ sÆ¡, `DatabaseSeeder.java`, `application.yml`, `application-cloud.yml`, `.env.example`, `build.gradle` vÃ  `Instructions_for_use.md`.
 
-### Kết quả kiểm tra
+### Káº¿t quáº£ kiá»ƒm tra
 
-- Client: `oxlint` không có cảnh báo, TypeScript biên dịch thành công và Vite tạo bản dựng production thành công.
-- Server: toàn bộ kiểm thử Gradle thành công; biên dịch sạch bằng `compileJava --rerun-tasks`, không còn cảnh báo unchecked.
+- Client: `oxlint` khÃ´ng cÃ³ cáº£nh bÃ¡o, TypeScript biÃªn dá»‹ch thÃ nh cÃ´ng vÃ  Vite táº¡o báº£n dá»±ng production thÃ nh cÃ´ng.
+- Server: toÃ n bá»™ kiá»ƒm thá»­ Gradle thÃ nh cÃ´ng; biÃªn dá»‹ch sáº¡ch báº±ng `compileJava --rerun-tasks`, khÃ´ng cÃ²n cáº£nh bÃ¡o unchecked.
 
-## Bổ sung cập nhật thông tin hồ sơ
+## Bá»• sung cáº­p nháº­t thÃ´ng tin há»“ sÆ¡
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-### Nội dung triển khai
+### Ná»™i dung triá»ƒn khai
 
-- Mở rộng cửa sổ đổi avatar thành `ProfileModal`, cho phép quản lý đồng thời ảnh đại diện và tên hiển thị trong cùng một nơi.
-- Hiển thị tên đăng nhập ở chế độ chỉ đọc vì đây là định danh dùng cho đăng nhập và JWT; Client không được phép gửi yêu cầu đổi username.
-- Bổ sung API bảo mật `PUT /api/v1/users/me`. Server lấy đúng tài khoản từ JWT, chuẩn hóa khoảng trắng và lưu tên hiển thị mới vào cơ sở dữ liệu.
-- Kiểm tra tên ở cả Client và Server: bắt buộc từ 2 đến 100 ký tự, phải có chữ cái và chỉ chấp nhận chữ cái, dấu tiếng Việt, khoảng trắng, dấu chấm, dấu nháy hoặc gạch nối.
-- Mở rộng sự kiện `/topic/profile-updates` để đồng bộ cả `fullName` và `avatarUrl`. Người còn lại thấy tên mới ngay tại danh sách trò chuyện, tiêu đề và các vị trí hồ sơ mà không cần tải lại trang.
-- Tách logic Client thành `useProfileInfoUpdate` và `profileService.updateProfile`, có trạng thái đang lưu, thông báo lỗi/thành công và giữ UI component tập trung vào hiển thị.
-- Thêm kiểm thử `UserProfileServiceImplTest` để xác nhận tên được chuẩn hóa đúng và sự kiện WebSocket được phát với dữ liệu mới; đồng thời kiểm tra trường hợp tên chỉ còn một ký tự sau chuẩn hóa bị từ chối.
+- Má»Ÿ rá»™ng cá»­a sá»• Ä‘á»•i avatar thÃ nh `ProfileModal`, cho phÃ©p quáº£n lÃ½ Ä‘á»“ng thá»i áº£nh Ä‘áº¡i diá»‡n vÃ  tÃªn hiá»ƒn thá»‹ trong cÃ¹ng má»™t nÆ¡i.
+- Hiá»ƒn thá»‹ tÃªn Ä‘Äƒng nháº­p á»Ÿ cháº¿ Ä‘á»™ chá»‰ Ä‘á»c vÃ¬ Ä‘Ã¢y lÃ  Ä‘á»‹nh danh dÃ¹ng cho Ä‘Äƒng nháº­p vÃ  JWT; Client khÃ´ng Ä‘Æ°á»£c phÃ©p gá»­i yÃªu cáº§u Ä‘á»•i username.
+- Bá»• sung API báº£o máº­t `PUT /api/v1/users/me`. Server láº¥y Ä‘Ãºng tÃ i khoáº£n tá»« JWT, chuáº©n hÃ³a khoáº£ng tráº¯ng vÃ  lÆ°u tÃªn hiá»ƒn thá»‹ má»›i vÃ o cÆ¡ sá»Ÿ dá»¯ liá»‡u.
+- Kiá»ƒm tra tÃªn á»Ÿ cáº£ Client vÃ  Server: báº¯t buá»™c tá»« 2 Ä‘áº¿n 100 kÃ½ tá»±, pháº£i cÃ³ chá»¯ cÃ¡i vÃ  chá»‰ cháº¥p nháº­n chá»¯ cÃ¡i, dáº¥u tiáº¿ng Viá»‡t, khoáº£ng tráº¯ng, dáº¥u cháº¥m, dáº¥u nhÃ¡y hoáº·c gáº¡ch ná»‘i.
+- Má»Ÿ rá»™ng sá»± kiá»‡n `/topic/profile-updates` Ä‘á»ƒ Ä‘á»“ng bá»™ cáº£ `fullName` vÃ  `avatarUrl`. NgÆ°á»i cÃ²n láº¡i tháº¥y tÃªn má»›i ngay táº¡i danh sÃ¡ch trÃ² chuyá»‡n, tiÃªu Ä‘á» vÃ  cÃ¡c vá»‹ trÃ­ há»“ sÆ¡ mÃ  khÃ´ng cáº§n táº£i láº¡i trang.
+- TÃ¡ch logic Client thÃ nh `useProfileInfoUpdate` vÃ  `profileService.updateProfile`, cÃ³ tráº¡ng thÃ¡i Ä‘ang lÆ°u, thÃ´ng bÃ¡o lá»—i/thÃ nh cÃ´ng vÃ  giá»¯ UI component táº­p trung vÃ o hiá»ƒn thá»‹.
+- ThÃªm kiá»ƒm thá»­ `UserProfileServiceImplTest` Ä‘á»ƒ xÃ¡c nháº­n tÃªn Ä‘Æ°á»£c chuáº©n hÃ³a Ä‘Ãºng vÃ  sá»± kiá»‡n WebSocket Ä‘Æ°á»£c phÃ¡t vá»›i dá»¯ liá»‡u má»›i; Ä‘á»“ng thá»i kiá»ƒm tra trÆ°á»ng há»£p tÃªn chá»‰ cÃ²n má»™t kÃ½ tá»± sau chuáº©n hÃ³a bá»‹ tá»« chá»‘i.
 
-### Tệp chính đã thay đổi
+### Tá»‡p chÃ­nh Ä‘Ã£ thay Ä‘á»•i
 
-- Client: `App.tsx`, `features/profile/components/ProfileModal.tsx`, `useProfileInfoUpdate.ts`, `profileService.ts`, `useAuthStore.ts`, `useChatStore.ts` và `useChatWebSocket.ts`.
-- Server: `UpdateProfileRequest.java`, `ProfileUpdatedEventResponse.java`, `UserProfileController.java`, `UserProfileService.java`, `UserProfileServiceImpl.java` và `UserProfileServiceImplTest.java`.
+- Client: `App.tsx`, `features/profile/components/ProfileModal.tsx`, `useProfileInfoUpdate.ts`, `profileService.ts`, `useAuthStore.ts`, `useChatStore.ts` vÃ  `useChatWebSocket.ts`.
+- Server: `UpdateProfileRequest.java`, `ProfileUpdatedEventResponse.java`, `UserProfileController.java`, `UserProfileService.java`, `UserProfileServiceImpl.java` vÃ  `UserProfileServiceImplTest.java`.
 
-### Kết quả kiểm tra
+### Káº¿t quáº£ kiá»ƒm tra
 
-- Client: lint không có cảnh báo, TypeScript biên dịch thành công và Vite tạo bản dựng production thành công.
-- Server: toàn bộ kiểm thử Gradle, bao gồm hai ca kiểm thử hồ sơ mới, hoàn tất với trạng thái `BUILD SUCCESSFUL`.
+- Client: lint khÃ´ng cÃ³ cáº£nh bÃ¡o, TypeScript biÃªn dá»‹ch thÃ nh cÃ´ng vÃ  Vite táº¡o báº£n dá»±ng production thÃ nh cÃ´ng.
+- Server: toÃ n bá»™ kiá»ƒm thá»­ Gradle, bao gá»“m hai ca kiá»ƒm thá»­ há»“ sÆ¡ má»›i, hoÃ n táº¥t vá»›i tráº¡ng thÃ¡i `BUILD SUCCESSFUL`.
 
-## Sửa lỗi IntelliJ không chạy được Server vì dòng lệnh quá dài
+## Sá»­a lá»—i IntelliJ khÃ´ng cháº¡y Ä‘Æ°á»£c Server vÃ¬ dÃ²ng lá»‡nh quÃ¡ dÃ i
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-- Cập nhật cấu hình chạy `ServerApplication` trong `server/.idea/workspace.xml` để IntelliJ sử dụng tệp tham số Java (`ARGS_FILE`) thay cho việc ghép toàn bộ dependency vào dòng lệnh Windows.
-- Cố định thư mục chạy thành `$PROJECT_DIR$` để Server tiếp tục đọc đúng tệp `server/.env`.
-- Thay đổi này xử lý lỗi `Command line is too long. Shorten the command line and rerun` mà không cần xóa dependency hoặc thay đổi mã nguồn ứng dụng.
-- Bổ sung cấu hình dự phòng `server/.run/ServerApplication_Gradle.run.xml`. Cấu hình **ServerApplication (Gradle)** chạy bằng tác vụ `bootRun`, luôn dùng đúng `runtimeClasspath` của Gradle và tránh lỗi IntelliJ chưa đồng bộ thư viện Cloudinary.
-- Đã xác nhận `com.cloudinary:cloudinary-http5:2.0.0` tồn tại trực tiếp trong `runtimeClasspath`; lỗi `ClassNotFoundException: com.cloudinary.Cloudinary` đến từ cache classpath của cấu hình IntelliJ cũ, không phải do thiếu dependency trong dự án.
-- Đã khởi động thử bằng `bootRun` trên cổng ngẫu nhiên: Spring Boot, Cloudinary configuration, MySQL, JPA và WebSocket đều khởi tạo thành công; `ServerApplication` đạt trạng thái `Started` sau khoảng 14 giây.
-- Chuyển cấu hình đang được chọn trong IntelliJ từ `Spring Boot.ServerApplication` sang `Gradle.ServerApplication (Gradle)` và bổ sung đồng thời `shortenClasspath` cùng `SHORTEN_COMMAND_LINE=ARGS_FILE` để tương thích nhiều phiên bản IntelliJ trên Windows.
-- Loại bỏ hoàn toàn SDK Cloudinary khỏi classpath và chuyển sang gọi Cloudinary Upload API bằng `RestClient` có sẵn trong Spring. Việc này xử lý dứt điểm `ClassNotFoundException: com.cloudinary.Cloudinary` ngay cả khi IntelliJ chưa làm mới mô hình dependency.
-- Khôi phục cách chạy Spring Boot trực tiếp theo yêu cầu: thêm cấu hình project `server/.run/ServerApplication.run.xml`, chọn lại `Spring Boot.ServerApplication` và sử dụng `JAR manifest` để đưa classpath dài vào một JAR tạm. Đây vẫn là thao tác Run/Debug `ServerApplication` thông thường, không chạy thông qua Gradle.
-- Xóa cấu hình chạy Gradle dự phòng để tránh nhầm lẫn trong danh sách Run. Dự án hiện chỉ giữ cấu hình Spring Boot trực tiếp `ServerApplication` như cách chạy thông thường trong IntelliJ.
+- Cáº­p nháº­t cáº¥u hÃ¬nh cháº¡y `ServerApplication` trong `server/.idea/workspace.xml` Ä‘á»ƒ IntelliJ sá»­ dá»¥ng tá»‡p tham sá»‘ Java (`ARGS_FILE`) thay cho viá»‡c ghÃ©p toÃ n bá»™ dependency vÃ o dÃ²ng lá»‡nh Windows.
+- Cá»‘ Ä‘á»‹nh thÆ° má»¥c cháº¡y thÃ nh `$PROJECT_DIR$` Ä‘á»ƒ Server tiáº¿p tá»¥c Ä‘á»c Ä‘Ãºng tá»‡p `server/.env`.
+- Thay Ä‘á»•i nÃ y xá»­ lÃ½ lá»—i `Command line is too long. Shorten the command line and rerun` mÃ  khÃ´ng cáº§n xÃ³a dependency hoáº·c thay Ä‘á»•i mÃ£ nguá»“n á»©ng dá»¥ng.
+- Bá»• sung cáº¥u hÃ¬nh dá»± phÃ²ng `server/.run/ServerApplication_Gradle.run.xml`. Cáº¥u hÃ¬nh **ServerApplication (Gradle)** cháº¡y báº±ng tÃ¡c vá»¥ `bootRun`, luÃ´n dÃ¹ng Ä‘Ãºng `runtimeClasspath` cá»§a Gradle vÃ  trÃ¡nh lá»—i IntelliJ chÆ°a Ä‘á»“ng bá»™ thÆ° viá»‡n Cloudinary.
+- ÄÃ£ xÃ¡c nháº­n `com.cloudinary:cloudinary-http5:2.0.0` tá»“n táº¡i trá»±c tiáº¿p trong `runtimeClasspath`; lá»—i `ClassNotFoundException: com.cloudinary.Cloudinary` Ä‘áº¿n tá»« cache classpath cá»§a cáº¥u hÃ¬nh IntelliJ cÅ©, khÃ´ng pháº£i do thiáº¿u dependency trong dá»± Ã¡n.
+- ÄÃ£ khá»Ÿi Ä‘á»™ng thá»­ báº±ng `bootRun` trÃªn cá»•ng ngáº«u nhiÃªn: Spring Boot, Cloudinary configuration, MySQL, JPA vÃ  WebSocket Ä‘á»u khá»Ÿi táº¡o thÃ nh cÃ´ng; `ServerApplication` Ä‘áº¡t tráº¡ng thÃ¡i `Started` sau khoáº£ng 14 giÃ¢y.
+- Chuyá»ƒn cáº¥u hÃ¬nh Ä‘ang Ä‘Æ°á»£c chá»n trong IntelliJ tá»« `Spring Boot.ServerApplication` sang `Gradle.ServerApplication (Gradle)` vÃ  bá»• sung Ä‘á»“ng thá»i `shortenClasspath` cÃ¹ng `SHORTEN_COMMAND_LINE=ARGS_FILE` Ä‘á»ƒ tÆ°Æ¡ng thÃ­ch nhiá»u phiÃªn báº£n IntelliJ trÃªn Windows.
+- Loáº¡i bá» hoÃ n toÃ n SDK Cloudinary khá»i classpath vÃ  chuyá»ƒn sang gá»i Cloudinary Upload API báº±ng `RestClient` cÃ³ sáºµn trong Spring. Viá»‡c nÃ y xá»­ lÃ½ dá»©t Ä‘iá»ƒm `ClassNotFoundException: com.cloudinary.Cloudinary` ngay cáº£ khi IntelliJ chÆ°a lÃ m má»›i mÃ´ hÃ¬nh dependency.
+- KhÃ´i phá»¥c cÃ¡ch cháº¡y Spring Boot trá»±c tiáº¿p theo yÃªu cáº§u: thÃªm cáº¥u hÃ¬nh project `server/.run/ServerApplication.run.xml`, chá»n láº¡i `Spring Boot.ServerApplication` vÃ  sá»­ dá»¥ng `JAR manifest` Ä‘á»ƒ Ä‘Æ°a classpath dÃ i vÃ o má»™t JAR táº¡m. ÄÃ¢y váº«n lÃ  thao tÃ¡c Run/Debug `ServerApplication` thÃ´ng thÆ°á»ng, khÃ´ng cháº¡y thÃ´ng qua Gradle.
+- XÃ³a cáº¥u hÃ¬nh cháº¡y Gradle dá»± phÃ²ng Ä‘á»ƒ trÃ¡nh nháº§m láº«n trong danh sÃ¡ch Run. Dá»± Ã¡n hiá»‡n chá»‰ giá»¯ cáº¥u hÃ¬nh Spring Boot trá»±c tiáº¿p `ServerApplication` nhÆ° cÃ¡ch cháº¡y thÃ´ng thÆ°á»ng trong IntelliJ.
 
-## Cho phép hai Client 5173 và 5174 chat đồng thời
+## Cho phÃ©p hai Client 5173 vÃ  5174 chat Ä‘á»“ng thá»i
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-- Sửa lỗi Client chạy tại `http://localhost:5174` không kết nối được WebSocket vì `WebSocketConfig` trước đó chỉ chấp nhận origin 5173.
-- Tạo `FrontendOriginProperties` làm nguồn cấu hình chung cho cả REST CORS và SockJS/STOMP, tránh tình trạng một bên cho phép 5174 nhưng bên còn lại từ chối.
-- Cấu hình mặc định cho phép chính xác `http://localhost:5173` và `http://localhost:5174`, phù hợp việc đăng nhập hai tài khoản bằng hai Google Chrome profile khác nhau.
+- Sá»­a lá»—i Client cháº¡y táº¡i `http://localhost:5174` khÃ´ng káº¿t ná»‘i Ä‘Æ°á»£c WebSocket vÃ¬ `WebSocketConfig` trÆ°á»›c Ä‘Ã³ chá»‰ cháº¥p nháº­n origin 5173.
+- Táº¡o `FrontendOriginProperties` lÃ m nguá»“n cáº¥u hÃ¬nh chung cho cáº£ REST CORS vÃ  SockJS/STOMP, trÃ¡nh tÃ¬nh tráº¡ng má»™t bÃªn cho phÃ©p 5174 nhÆ°ng bÃªn cÃ²n láº¡i tá»« chá»‘i.
+- Cáº¥u hÃ¬nh máº·c Ä‘á»‹nh cho phÃ©p chÃ­nh xÃ¡c `http://localhost:5173` vÃ  `http://localhost:5174`, phÃ¹ há»£p viá»‡c Ä‘Äƒng nháº­p hai tÃ i khoáº£n báº±ng hai Google Chrome profile khÃ¡c nhau.
 
-## Sửa yêu cầu cập nhật avatar không phải multipart
+## Sá»­a yÃªu cáº§u cáº­p nháº­t avatar khÃ´ng pháº£i multipart
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-- Đối chiếu lại luồng chuẩn trong Holiday và xác định Client ChatRealTime bị kế thừa `Content-Type: application/json` từ Axios instance khi gửi `FormData`.
-- Cập nhật `profileService.uploadAvatar` để ghi đè `Content-Type: multipart/form-data` đúng như `Holiday/client/src/features/profile/services/user.api.ts`.
-- Khai báo rõ `consumes = multipart/form-data` tại API `/api/v1/users/me/avatar`, bảo đảm hợp đồng Client–Server nhất quán và ngăn yêu cầu sai định dạng đi sâu vào nghiệp vụ.
-- Sau kiểm tra thực tế, bỏ ràng buộc `consumes` bổ sung vì nó khiến Spring không chọn handler khi request từ trình duyệt chưa có content type khớp tuyệt đối và rơi xuống static resource handler. Controller hiện khớp đúng cấu trúc Holiday: `@PostMapping("/me/avatar")` kết hợp `@RequestParam("file") MultipartFile file`.
+- Äá»‘i chiáº¿u láº¡i luá»“ng chuáº©n trong Holiday vÃ  xÃ¡c Ä‘á»‹nh Client ChatRealTime bá»‹ káº¿ thá»«a `Content-Type: application/json` tá»« Axios instance khi gá»­i `FormData`.
+- Cáº­p nháº­t `profileService.uploadAvatar` Ä‘á»ƒ ghi Ä‘Ã¨ `Content-Type: multipart/form-data` Ä‘Ãºng nhÆ° `Holiday/client/src/features/profile/services/user.api.ts`.
+- Khai bÃ¡o rÃµ `consumes = multipart/form-data` táº¡i API `/api/v1/users/me/avatar`, báº£o Ä‘áº£m há»£p Ä‘á»“ng Clientâ€“Server nháº¥t quÃ¡n vÃ  ngÄƒn yÃªu cáº§u sai Ä‘á»‹nh dáº¡ng Ä‘i sÃ¢u vÃ o nghiá»‡p vá»¥.
+- Sau kiá»ƒm tra thá»±c táº¿, bá» rÃ ng buá»™c `consumes` bá»• sung vÃ¬ nÃ³ khiáº¿n Spring khÃ´ng chá»n handler khi request tá»« trÃ¬nh duyá»‡t chÆ°a cÃ³ content type khá»›p tuyá»‡t Ä‘á»‘i vÃ  rÆ¡i xuá»‘ng static resource handler. Controller hiá»‡n khá»›p Ä‘Ãºng cáº¥u trÃºc Holiday: `@PostMapping("/me/avatar")` káº¿t há»£p `@RequestParam("file") MultipartFile file`.
 
-## Nâng Cấp Giao Diện (UI/UX) & Responsive
+## NÃ¢ng Cáº¥p Giao Diá»‡n (UI/UX) & Responsive
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-- **Mobile Responsive**: Đảm bảo ứng dụng chạy mượt mà trên các thiết bị màn hình nhỏ (Mobile/Tablet) bằng cách ẩn/hiện Sidebar và Main Chat Area tùy thuộc vào việc người dùng có đang trong phòng chat nào không. Bổ sung nút `Back` trong `ChatBox` trên điện thoại.
+- **Mobile Responsive**: Äáº£m báº£o á»©ng dá»¥ng cháº¡y mÆ°á»£t mÃ  trÃªn cÃ¡c thiáº¿t bá»‹ mÃ n hÃ¬nh nhá» (Mobile/Tablet) báº±ng cÃ¡ch áº©n/hiá»‡n Sidebar vÃ  Main Chat Area tÃ¹y thuá»™c vÃ o viá»‡c ngÆ°á»i dÃ¹ng cÃ³ Ä‘ang trong phÃ²ng chat nÃ o khÃ´ng. Bá»• sung nÃºt `Back` trong `ChatBox` trÃªn Ä‘iá»‡n thoáº¡i.
 - **Premium Design (Glassmorphism & Animated Backgrounds)**: 
-  - Đổi tông màu và hình nền thành dạng Gradient động (Animated Gradient) kết hợp với các hình cầu lơ lửng mờ (Blurry Blobs).
-  - Áp dụng font **Inter** xuyên suốt dự án mang lại cảm giác chuyên nghiệp.
-  - Nâng cấp màn hình Đăng Nhập (`Login`), danh sách phòng trò chuyện (`ConversationList`) và bong bóng tin nhắn (`MessageItem`) với bóng đổ mượt mà (soft shadows), đường viền siêu nhẹ và hiệu ứng background mờ (backdrop-blur).
+  - Äá»•i tÃ´ng mÃ u vÃ  hÃ¬nh ná»n thÃ nh dáº¡ng Gradient Ä‘á»™ng (Animated Gradient) káº¿t há»£p vá»›i cÃ¡c hÃ¬nh cáº§u lÆ¡ lá»­ng má» (Blurry Blobs).
+  - Ãp dá»¥ng font **Inter** xuyÃªn suá»‘t dá»± Ã¡n mang láº¡i cáº£m giÃ¡c chuyÃªn nghiá»‡p.
+  - NÃ¢ng cáº¥p mÃ n hÃ¬nh ÄÄƒng Nháº­p (`Login`), danh sÃ¡ch phÃ²ng trÃ² chuyá»‡n (`ConversationList`) vÃ  bong bÃ³ng tin nháº¯n (`MessageItem`) vá»›i bÃ³ng Ä‘á»• mÆ°á»£t mÃ  (soft shadows), Ä‘Æ°á»ng viá»n siÃªu nháº¹ vÃ  hiá»‡u á»©ng background má» (backdrop-blur).
 - **Micro-Animations**:
-  - Tích hợp nhiều chuyển động mượt mà bằng CSS Keyframes (`slide-up`, `pop-in`, `float`, `pulse-glow` cho người dùng online).
-- **Tuân thủ Tuyệt Đối Logic**: Quá trình nâng cấp 100% không làm thay đổi hay chạm vào logic quản lý State (Zustand) hay kết nối WebSocket/API.
+  - TÃ­ch há»£p nhiá»u chuyá»ƒn Ä‘á»™ng mÆ°á»£t mÃ  báº±ng CSS Keyframes (`slide-up`, `pop-in`, `float`, `pulse-glow` cho ngÆ°á»i dÃ¹ng online).
+- **TuÃ¢n thá»§ Tuyá»‡t Äá»‘i Logic**: QuÃ¡ trÃ¬nh nÃ¢ng cáº¥p 100% khÃ´ng lÃ m thay Ä‘á»•i hay cháº¡m vÃ o logic quáº£n lÃ½ State (Zustand) hay káº¿t ná»‘i WebSocket/API.
 
-## Hoàn thiện giao diện và nhận diện robot CloseFriend trên mobile
+## HoÃ n thiá»‡n giao diá»‡n vÃ  nháº­n diá»‡n robot CloseFriend trÃªn mobile
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-### Nội dung triển khai
+### Ná»™i dung triá»ƒn khai
 
-- Tạo component `BotAvatar` riêng bằng biểu tượng robot vector, loại bỏ emoji lấp lánh cũ và dùng thống nhất tại tin nhắn AI, khu vực hướng dẫn gọi bot, màn hình chờ và nhận diện CloseFriend.
-- Thiết kế lại tin nhắn bot theo hướng dễ phân biệt nhưng không lấn át cuộc trò chuyện: có avatar robot, nhãn `CloseFriend AI`, huy hiệu `Bot` và bong bóng nền sáng dễ đọc.
-- Thêm nút robot cạnh ô nhập. Người dùng chỉ cần nhấn nút để chèn `@CloseFriend`, không phải tự nhớ cú pháp gọi bot.
-- Cải thiện danh sách trò chuyện, tiêu đề phòng chat, trạng thái trực tuyến, màn hình chưa có tin nhắn và khu vực tài khoản bằng khoảng cách, độ tương phản và vùng bấm phù hợp thiết bị cảm ứng.
-- Chuyển khung ứng dụng sang chiều cao động `100dvh`, bổ sung safe-area cho thiết bị có tai thỏ/thanh điều hướng và ngăn ô nhập bị thanh trình duyệt mobile che khuất.
-- Tối ưu riêng cho mobile: header gọn hơn, bong bóng tin nhắn rộng hợp lý, ẩn avatar của chính mình để dành không gian, nút quay lại và nút gửi đạt vùng chạm thuận tiện.
-- Chuyển cửa sổ hồ sơ thành bottom sheet trên mobile, giới hạn chiều cao và cho phép cuộn; trên desktop vẫn giữ dạng modal ở giữa màn hình.
-- Làm mới màn hình đăng nhập với biểu tượng robot, kích thước và khoảng cách responsive; bổ sung hỗ trợ `prefers-reduced-motion` cho người dùng hạn chế chuyển động.
+- Táº¡o component `BotAvatar` riÃªng báº±ng biá»ƒu tÆ°á»£ng robot vector, loáº¡i bá» emoji láº¥p lÃ¡nh cÅ© vÃ  dÃ¹ng thá»‘ng nháº¥t táº¡i tin nháº¯n AI, khu vá»±c hÆ°á»›ng dáº«n gá»i bot, mÃ n hÃ¬nh chá» vÃ  nháº­n diá»‡n CloseFriend.
+- Thiáº¿t káº¿ láº¡i tin nháº¯n bot theo hÆ°á»›ng dá»… phÃ¢n biá»‡t nhÆ°ng khÃ´ng láº¥n Ã¡t cuá»™c trÃ² chuyá»‡n: cÃ³ avatar robot, nhÃ£n `CloseFriend AI`, huy hiá»‡u `Bot` vÃ  bong bÃ³ng ná»n sÃ¡ng dá»… Ä‘á»c.
+- ThÃªm nÃºt robot cáº¡nh Ã´ nháº­p. NgÆ°á»i dÃ¹ng chá»‰ cáº§n nháº¥n nÃºt Ä‘á»ƒ chÃ¨n `@CloseFriend`, khÃ´ng pháº£i tá»± nhá»› cÃº phÃ¡p gá»i bot.
+- Cáº£i thiá»‡n danh sÃ¡ch trÃ² chuyá»‡n, tiÃªu Ä‘á» phÃ²ng chat, tráº¡ng thÃ¡i trá»±c tuyáº¿n, mÃ n hÃ¬nh chÆ°a cÃ³ tin nháº¯n vÃ  khu vá»±c tÃ i khoáº£n báº±ng khoáº£ng cÃ¡ch, Ä‘á»™ tÆ°Æ¡ng pháº£n vÃ  vÃ¹ng báº¥m phÃ¹ há»£p thiáº¿t bá»‹ cáº£m á»©ng.
+- Chuyá»ƒn khung á»©ng dá»¥ng sang chiá»u cao Ä‘á»™ng `100dvh`, bá»• sung safe-area cho thiáº¿t bá»‹ cÃ³ tai thá»/thanh Ä‘iá»u hÆ°á»›ng vÃ  ngÄƒn Ã´ nháº­p bá»‹ thanh trÃ¬nh duyá»‡t mobile che khuáº¥t.
+- Tá»‘i Æ°u riÃªng cho mobile: header gá»n hÆ¡n, bong bÃ³ng tin nháº¯n rá»™ng há»£p lÃ½, áº©n avatar cá»§a chÃ­nh mÃ¬nh Ä‘á»ƒ dÃ nh khÃ´ng gian, nÃºt quay láº¡i vÃ  nÃºt gá»­i Ä‘áº¡t vÃ¹ng cháº¡m thuáº­n tiá»‡n.
+- Chuyá»ƒn cá»­a sá»• há»“ sÆ¡ thÃ nh bottom sheet trÃªn mobile, giá»›i háº¡n chiá»u cao vÃ  cho phÃ©p cuá»™n; trÃªn desktop váº«n giá»¯ dáº¡ng modal á»Ÿ giá»¯a mÃ n hÃ¬nh.
+- LÃ m má»›i mÃ n hÃ¬nh Ä‘Äƒng nháº­p vá»›i biá»ƒu tÆ°á»£ng robot, kÃ­ch thÆ°á»›c vÃ  khoáº£ng cÃ¡ch responsive; bá»• sung há»— trá»£ `prefers-reduced-motion` cho ngÆ°á»i dÃ¹ng háº¡n cháº¿ chuyá»ƒn Ä‘á»™ng.
 
-### Tệp chính đã thay đổi
+### Tá»‡p chÃ­nh Ä‘Ã£ thay Ä‘á»•i
 
 - `client/src/features/chat/components/BotAvatar.tsx`
 - `client/src/features/chat/components/MessageItem.tsx`
 
-## Tách địa chỉ local và domain production
+## TÃ¡ch Ä‘á»‹a chá»‰ local vÃ  domain production
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-- Tạo `client/src/infra/serverUrl.ts` làm nguồn URL duy nhất. Vite development dùng Server local, còn bản build production tự dùng `https://chat.atmin.io.vn`.
-- Loại bỏ URL localhost viết trực tiếp khỏi Axios và hook WebSocket; REST API và SockJS cùng lấy địa chỉ từ cấu hình chung.
-- Tách cấu hình Spring thành profile `local` và `cloud`: local giữ MySQL/CORS trên máy, cloud yêu cầu MySQL Railway và chỉ chấp nhận domain thật.
-- Server đọc cổng động `PORT` của Railway và vẫn mặc định cổng 8080 khi chạy local.
-- Bổ sung biến mẫu cho profile, MySQL Railway và JWT trong `.env.example`.
-- Tạo `deploy.md` bằng tiếng Việt, ghi đầy đủ bảng địa chỉ, cách đổi profile, biến Railway và cách quay lại chạy local.
+- Táº¡o `client/src/infra/serverUrl.ts` lÃ m nguá»“n URL duy nháº¥t. Vite development dÃ¹ng Server local, cÃ²n báº£n build production tá»± dÃ¹ng `https://chat.atmin.io.vn`.
+- Loáº¡i bá» URL localhost viáº¿t trá»±c tiáº¿p khá»i Axios vÃ  hook WebSocket; REST API vÃ  SockJS cÃ¹ng láº¥y Ä‘á»‹a chá»‰ tá»« cáº¥u hÃ¬nh chung.
+- TÃ¡ch cáº¥u hÃ¬nh Spring thÃ nh profile `local` vÃ  `cloud`: local giá»¯ MySQL/CORS trÃªn mÃ¡y, cloud yÃªu cáº§u MySQL Railway vÃ  chá»‰ cháº¥p nháº­n domain tháº­t.
+- Server Ä‘á»c cá»•ng Ä‘á»™ng `PORT` cá»§a Railway vÃ  váº«n máº·c Ä‘á»‹nh cá»•ng 8080 khi cháº¡y local.
+- Bá»• sung biáº¿n máº«u cho profile, MySQL Railway vÃ  JWT trong `.env.example`.
+- Táº¡o `deploy.md` báº±ng tiáº¿ng Viá»‡t, ghi Ä‘áº§y Ä‘á»§ báº£ng Ä‘á»‹a chá»‰, cÃ¡ch Ä‘á»•i profile, biáº¿n Railway vÃ  cÃ¡ch quay láº¡i cháº¡y local.
 
-## Hoàn thiện gói deploy Railway cho người mới
+## HoÃ n thiá»‡n gÃ³i deploy Railway cho ngÆ°á»i má»›i
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-- Thêm Dockerfile nhiều giai đoạn tại thư mục gốc: Node build React, Gradle build Spring Boot và Java 21 JRE chạy ứng dụng bằng tài khoản không có quyền root.
-- Đóng gói giao diện React vào static resources của Spring Boot để toàn bộ giao diện, REST API và WebSocket dùng chung `chat.atmin.io.vn`.
-- Thêm `.dockerignore` và loại dự án Holiday khỏi Git để tránh gửi mã tham khảo, `.env`, dependency và file build lên Railway.
-- Cho phép các tài nguyên giao diện truy cập công khai qua Spring Security; API nghiệp vụ vẫn yêu cầu JWT như trước.
-- Tạo `/health` công khai để Railway kiểm tra ứng dụng còn hoạt động.
-- Tách cấu hình refresh cookie theo môi trường: local không Secure, production HTTPS bắt buộc Secure; loại bỏ ba đoạn tạo cookie trùng lặp trong AuthController.
-- Mở rộng `deploy.md` để giải thích các file Railway sử dụng và nhắc không cấu hình sai Root Directory.
-- Tô nổi bật `@CloseFriend` trong nội dung tin nhắn: màu xanh Messenger trên bong bóng sáng và màu xanh nhạt tương phản trên bong bóng xanh của người gửi.
+- ThÃªm Dockerfile nhiá»u giai Ä‘oáº¡n táº¡i thÆ° má»¥c gá»‘c: Node build React, Gradle build Spring Boot vÃ  Java 21 JRE cháº¡y á»©ng dá»¥ng báº±ng tÃ i khoáº£n khÃ´ng cÃ³ quyá»n root.
+- ÄÃ³ng gÃ³i giao diá»‡n React vÃ o static resources cá»§a Spring Boot Ä‘á»ƒ toÃ n bá»™ giao diá»‡n, REST API vÃ  WebSocket dÃ¹ng chung `chat.atmin.io.vn`.
+- ThÃªm `.dockerignore` vÃ  loáº¡i dá»± Ã¡n Holiday khá»i Git Ä‘á»ƒ trÃ¡nh gá»­i mÃ£ tham kháº£o, `.env`, dependency vÃ  file build lÃªn Railway.
+- Cho phÃ©p cÃ¡c tÃ i nguyÃªn giao diá»‡n truy cáº­p cÃ´ng khai qua Spring Security; API nghiá»‡p vá»¥ váº«n yÃªu cáº§u JWT nhÆ° trÆ°á»›c.
+- Táº¡o `/health` cÃ´ng khai Ä‘á»ƒ Railway kiá»ƒm tra á»©ng dá»¥ng cÃ²n hoáº¡t Ä‘á»™ng.
+- TÃ¡ch cáº¥u hÃ¬nh refresh cookie theo mÃ´i trÆ°á»ng: local khÃ´ng Secure, production HTTPS báº¯t buá»™c Secure; loáº¡i bá» ba Ä‘oáº¡n táº¡o cookie trÃ¹ng láº·p trong AuthController.
+- Má»Ÿ rá»™ng `deploy.md` Ä‘á»ƒ giáº£i thÃ­ch cÃ¡c file Railway sá»­ dá»¥ng vÃ  nháº¯c khÃ´ng cáº¥u hÃ¬nh sai Root Directory.
+- TÃ´ ná»•i báº­t `@CloseFriend` trong ná»™i dung tin nháº¯n: mÃ u xanh Messenger trÃªn bong bÃ³ng sÃ¡ng vÃ  mÃ u xanh nháº¡t tÆ°Æ¡ng pháº£n trÃªn bong bÃ³ng xanh cá»§a ngÆ°á»i gá»­i.
 
-## Chuẩn bị deploy miễn phí bằng Render và Supabase
+## Chuáº©n bá»‹ deploy miá»…n phÃ­ báº±ng Render vÃ  Supabase
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-- Giữ MySQL cho profile `local` để cách chạy trên máy không thay đổi.
-- Thêm PostgreSQL JDBC Driver cho profile `cloud` kết nối Supabase.
-- Bỏ cấu hình ép Hibernate dùng MySQL; Hibernate tự nhận đúng hệ quản trị theo datasource của từng môi trường.
-- Cấu hình Hikari pool tối đa 5 kết nối để phù hợp giới hạn dự án Supabase Free.
-- Cập nhật `.env.example` và `deploy.md` sang Render + Supabase Session pooler IPv4, không cần IPv4 add-on trả phí.
-- Giữ mô hình một Docker container chạy chung React, Spring Boot và WebSocket để người mới không phải tách Netlify.
+- Giá»¯ MySQL cho profile `local` Ä‘á»ƒ cÃ¡ch cháº¡y trÃªn mÃ¡y khÃ´ng thay Ä‘á»•i.
+- ThÃªm PostgreSQL JDBC Driver cho profile `cloud` káº¿t ná»‘i Supabase.
+- Bá» cáº¥u hÃ¬nh Ã©p Hibernate dÃ¹ng MySQL; Hibernate tá»± nháº­n Ä‘Ãºng há»‡ quáº£n trá»‹ theo datasource cá»§a tá»«ng mÃ´i trÆ°á»ng.
+- Cáº¥u hÃ¬nh Hikari pool tá»‘i Ä‘a 5 káº¿t ná»‘i Ä‘á»ƒ phÃ¹ há»£p giá»›i háº¡n dá»± Ã¡n Supabase Free.
+- Cáº­p nháº­t `.env.example` vÃ  `deploy.md` sang Render + Supabase Session pooler IPv4, khÃ´ng cáº§n IPv4 add-on tráº£ phÃ­.
+- Giá»¯ mÃ´ hÃ¬nh má»™t Docker container cháº¡y chung React, Spring Boot vÃ  WebSocket Ä‘á»ƒ ngÆ°á»i má»›i khÃ´ng pháº£i tÃ¡ch Netlify.
 
-## Sửa Render Live nhưng trả về Not Found
+## Sá»­a Render Live nhÆ°ng tráº£ vá» Not Found
 
-**Ngày cập nhật**: 18/08/2026
+**NgÃ y cáº­p nháº­t**: 18/08/2026
 
-- Xác nhận Render trả header `x-render-routing=no-server`, cho thấy container không còn phục vụ phía sau route dù deploy từng báo Live.
-- Giới hạn Java ở heap 256 MB, Serial GC, metaspace 128 MB, code cache 48 MB và một CPU để vừa gói Render Free 512 MB.
-- Giảm Tomcat còn tối đa 20 request threads và 100 kết nối cho quy mô chat demo.
-- Buộc Docker kiểm tra `dist/index.html` trước khi build và kiểm tra lại `index.html` đã nằm trong Spring Boot JAR; build sẽ thất bại sớm thay vì deploy một ứng dụng thiếu giao diện.
-- Thêm route `/` chuyển tiếp rõ ràng đến `/index.html` để Spring Boot luôn trả giao diện React.
+- XÃ¡c nháº­n Render tráº£ header `x-render-routing=no-server`, cho tháº¥y container khÃ´ng cÃ²n phá»¥c vá»¥ phÃ­a sau route dÃ¹ deploy tá»«ng bÃ¡o Live.
+- Giá»›i háº¡n Java á»Ÿ heap 256 MB, Serial GC, metaspace 128 MB, code cache 48 MB vÃ  má»™t CPU Ä‘á»ƒ vá»«a gÃ³i Render Free 512 MB.
+- Giáº£m Tomcat cÃ²n tá»‘i Ä‘a 20 request threads vÃ  100 káº¿t ná»‘i cho quy mÃ´ chat demo.
+- Buá»™c Docker kiá»ƒm tra `dist/index.html` trÆ°á»›c khi build vÃ  kiá»ƒm tra láº¡i `index.html` Ä‘Ã£ náº±m trong Spring Boot JAR; build sáº½ tháº¥t báº¡i sá»›m thay vÃ¬ deploy má»™t á»©ng dá»¥ng thiáº¿u giao diá»‡n.
+- ThÃªm route `/` chuyá»ƒn tiáº¿p rÃµ rÃ ng Ä‘áº¿n `/index.html` Ä‘á»ƒ Spring Boot luÃ´n tráº£ giao diá»‡n React.
 
-## Không phụ thuộc domain production trong mã Client
+## KhÃ´ng phá»¥ thuá»™c domain production trong mÃ£ Client
 
-**Ngày cập nhật**: 18/08/2026
+**NgÃ y cáº­p nháº­t**: 18/08/2026
 
-- Loại bỏ địa chỉ `https://chat.atmin.io.vn` bị hardcode trong bản build React.
-- Production tự lấy `window.location.origin`, nên link Render gọi REST/WebSocket trên Render và domain chính thức tự gọi cùng domain sau khi DNS hoạt động.
-- Vẫn hỗ trợ `VITE_SERVER_ORIGIN` khi cần ghi đè và chuẩn hóa dấu `/` cuối để tránh URL bị lặp dấu gạch chéo.
-- Cho phép origin Render tạm trong cấu hình cloud để WebSocket hoạt động trước khi Nhân Hòa xử lý xong DNS.
-- Sửa chính xác hostname Render thành `chat-real-time-ujhj.onrender.com` để bắt tay WebSocket không bị CORS từ chối.
+- Loáº¡i bá» Ä‘á»‹a chá»‰ `https://chat.atmin.io.vn` bá»‹ hardcode trong báº£n build React.
+- Production tá»± láº¥y `window.location.origin`, nÃªn link Render gá»i REST/WebSocket trÃªn Render vÃ  domain chÃ­nh thá»©c tá»± gá»i cÃ¹ng domain sau khi DNS hoáº¡t Ä‘á»™ng.
+- Váº«n há»— trá»£ `VITE_SERVER_ORIGIN` khi cáº§n ghi Ä‘Ã¨ vÃ  chuáº©n hÃ³a dáº¥u `/` cuá»‘i Ä‘á»ƒ trÃ¡nh URL bá»‹ láº·p dáº¥u gáº¡ch chÃ©o.
+- Cho phÃ©p origin Render táº¡m trong cáº¥u hÃ¬nh cloud Ä‘á»ƒ WebSocket hoáº¡t Ä‘á»™ng trÆ°á»›c khi NhÃ¢n HÃ²a xá»­ lÃ½ xong DNS.
+- Sá»­a chÃ­nh xÃ¡c hostname Render thÃ nh `chat-real-time-ujhj.onrender.com` Ä‘á»ƒ báº¯t tay WebSocket khÃ´ng bá»‹ CORS tá»« chá»‘i.
 
-## Sửa đăng nhập production và gợi ý tài khoản
+## Sá»­a Ä‘Äƒng nháº­p production vÃ  gá»£i Ã½ tÃ i khoáº£n
 
-**Ngày cập nhật**: 18/08/2026
+**NgÃ y cáº­p nháº­t**: 18/08/2026
 
-- Chuẩn hóa mọi `JWT_SECRET_KEY` thành khóa SHA-256 đủ 256 bit, không còn yêu cầu chuỗi do Render tạo phải đúng định dạng Base64.
-- Đăng nhập sai trả HTTP 401 với thông báo rõ ràng thay vì bị chuyển thành HTTP 500.
-- Không gọi `/auth/refresh` ở lần mở đầu khi trình duyệt chưa từng có phiên đăng nhập, loại bỏ lỗi 401 gây nhiễu trong Console.
-- Lưu một cờ phiên không nhạy cảm; token và refresh token vẫn không được ghi vào localStorage.
-- Giữ input đăng nhập hoàn toàn sạch: không placeholder, không tài khoản/mật khẩu mẫu và tắt autocomplete để giao diện không làm lộ hoặc gợi ý thông tin đăng nhập.
+- Chuáº©n hÃ³a má»i `JWT_SECRET_KEY` thÃ nh khÃ³a SHA-256 Ä‘á»§ 256 bit, khÃ´ng cÃ²n yÃªu cáº§u chuá»—i do Render táº¡o pháº£i Ä‘Ãºng Ä‘á»‹nh dáº¡ng Base64.
+- ÄÄƒng nháº­p sai tráº£ HTTP 401 vá»›i thÃ´ng bÃ¡o rÃµ rÃ ng thay vÃ¬ bá»‹ chuyá»ƒn thÃ nh HTTP 500.
+- KhÃ´ng gá»i `/auth/refresh` á»Ÿ láº§n má»Ÿ Ä‘áº§u khi trÃ¬nh duyá»‡t chÆ°a tá»«ng cÃ³ phiÃªn Ä‘Äƒng nháº­p, loáº¡i bá» lá»—i 401 gÃ¢y nhiá»…u trong Console.
+- LÆ°u má»™t cá» phiÃªn khÃ´ng nháº¡y cáº£m; token vÃ  refresh token váº«n khÃ´ng Ä‘Æ°á»£c ghi vÃ o localStorage.
+- Giá»¯ input Ä‘Äƒng nháº­p hoÃ n toÃ n sáº¡ch: khÃ´ng placeholder, khÃ´ng tÃ i khoáº£n/máº­t kháº©u máº«u vÃ  táº¯t autocomplete Ä‘á»ƒ giao diá»‡n khÃ´ng lÃ m lá»™ hoáº·c gá»£i Ã½ thÃ´ng tin Ä‘Äƒng nháº­p.
 
-## Cải thiện thanh nhập khi bàn phím điện thoại mở
+## Cáº£i thiá»‡n thanh nháº­p khi bÃ n phÃ­m Ä‘iá»‡n thoáº¡i má»Ÿ
 
-**Ngày cập nhật**: 18/08/2026
+**NgÃ y cáº­p nháº­t**: 18/08/2026
 
-- Đồng bộ chiều cao ứng dụng với vùng màn hình thực sự còn nhìn thấy bằng Visual Viewport API, giúp thanh nhập luôn nằm phía trên bàn phím ảo.
-- Theo dõi thay đổi kích thước, vị trí viewport và xoay màn hình để bố cục tự co giãn trên Android và iOS.
-- Tự đưa cuối cuộc trò chuyện vào vùng nhìn thấy khi người dùng chạm vào ô nhập.
-- Vẫn giữ khoảng đệm safe-area cho thiết bị có thanh Home hoặc tai thỏ.
-- Khai báo `interactive-widget=resizes-content`, tắt chế độ Virtual Keyboard phủ nội dung trên trình duyệt hỗ trợ và đồng bộ viewport nhiều nhịp khi input focus/blur.
-- Đưa thanh soạn tin lên lớp hiển thị riêng và bỏ phần safe-area dư khi bàn phím đang mở, giúp người dùng luôn nhìn thấy nội dung đang nhập.
+- Äá»“ng bá»™ chiá»u cao á»©ng dá»¥ng vá»›i vÃ¹ng mÃ n hÃ¬nh thá»±c sá»± cÃ²n nhÃ¬n tháº¥y báº±ng Visual Viewport API, giÃºp thanh nháº­p luÃ´n náº±m phÃ­a trÃªn bÃ n phÃ­m áº£o.
+- Theo dÃµi thay Ä‘á»•i kÃ­ch thÆ°á»›c, vá»‹ trÃ­ viewport vÃ  xoay mÃ n hÃ¬nh Ä‘á»ƒ bá»‘ cá»¥c tá»± co giÃ£n trÃªn Android vÃ  iOS.
+- Tá»± Ä‘Æ°a cuá»‘i cuá»™c trÃ² chuyá»‡n vÃ o vÃ¹ng nhÃ¬n tháº¥y khi ngÆ°á»i dÃ¹ng cháº¡m vÃ o Ã´ nháº­p.
+- Váº«n giá»¯ khoáº£ng Ä‘á»‡m safe-area cho thiáº¿t bá»‹ cÃ³ thanh Home hoáº·c tai thá».
+- Khai bÃ¡o `interactive-widget=resizes-content`, táº¯t cháº¿ Ä‘á»™ Virtual Keyboard phá»§ ná»™i dung trÃªn trÃ¬nh duyá»‡t há»— trá»£ vÃ  Ä‘á»“ng bá»™ viewport nhiá»u nhá»‹p khi input focus/blur.
+- ÄÆ°a thanh soáº¡n tin lÃªn lá»›p hiá»ƒn thá»‹ riÃªng vÃ  bá» pháº§n safe-area dÆ° khi bÃ n phÃ­m Ä‘ang má»Ÿ, giÃºp ngÆ°á»i dÃ¹ng luÃ´n nhÃ¬n tháº¥y ná»™i dung Ä‘ang nháº­p.
 
-## Sửa lỗi phản hồi bảo mật với kiểu ngày giờ Java
+## Sá»­a lá»—i pháº£n há»“i báº£o máº­t vá»›i kiá»ƒu ngÃ y giá» Java
 
-**Ngày cập nhật**: 18/08/2026
+**NgÃ y cáº­p nháº­t**: 18/08/2026
 
-- Cấu hình `ObjectMapper` tự đăng ký các module chuẩn thay vì tạo bộ chuyển JSON rỗng và chuẩn hóa ngày giờ sang chuỗi ISO-8601 dễ đọc.
-- Bổ sung module JSR-310 để phản hồi 401/403 có `LocalDateTime` được chuyển thành JSON hợp lệ, không còn phát sinh lỗi 500 trong `SecurityConfig`.
-- Thêm kiểm thử hồi quy xác nhận `LocalDateTime` luôn được serialize thành công.
+- Cáº¥u hÃ¬nh `ObjectMapper` tá»± Ä‘Äƒng kÃ½ cÃ¡c module chuáº©n thay vÃ¬ táº¡o bá»™ chuyá»ƒn JSON rá»—ng vÃ  chuáº©n hÃ³a ngÃ y giá» sang chuá»—i ISO-8601 dá»… Ä‘á»c.
+- Bá»• sung module JSR-310 Ä‘á»ƒ pháº£n há»“i 401/403 cÃ³ `LocalDateTime` Ä‘Æ°á»£c chuyá»ƒn thÃ nh JSON há»£p lá»‡, khÃ´ng cÃ²n phÃ¡t sinh lá»—i 500 trong `SecurityConfig`.
+- ThÃªm kiá»ƒm thá»­ há»“i quy xÃ¡c nháº­n `LocalDateTime` luÃ´n Ä‘Æ°á»£c serialize thÃ nh cÃ´ng.
 
-## Gia cố reply, tạo phòng riêng và tìm kiếm người dùng
+## Gia cá»‘ reply, táº¡o phÃ²ng riÃªng vÃ  tÃ¬m kiáº¿m ngÆ°á»i dÃ¹ng
 
-**Ngày cập nhật**: 18/08/2026
+**NgÃ y cáº­p nháº­t**: 18/08/2026
 
-- Giữ thống nhất cú pháp gọi bot `@CloseFriend` trên Client và Server.
-- Trả lỗi rõ ràng khi tin nhắn gốc không tồn tại hoặc thuộc một phòng chat khác, không còn âm thầm bỏ qua reply.
-- Khóa bi quan hai người dùng theo thứ tự ID cố định trước khi tìm hoặc tạo phòng riêng, ngăn hai yêu cầu đồng thời tạo hai phòng 1–1 trùng nhau.
-- Giới hạn tìm kiếm tối đa 20 tài khoản đang hoạt động, loại tài khoản hiện tại ngay tại truy vấn database và sắp xếp theo username.
-- Thay kiểu `any` của kết quả tìm kiếm Client bằng interface `SearchUser` và xử lý lỗi Axios an toàn.
-- Bổ sung kiểm thử hồi quy cho reply xuyên phòng và thứ tự khóa khi tạo phòng riêng.
+- Giá»¯ thá»‘ng nháº¥t cÃº phÃ¡p gá»i bot `@CloseFriend` trÃªn Client vÃ  Server.
+- Tráº£ lá»—i rÃµ rÃ ng khi tin nháº¯n gá»‘c khÃ´ng tá»“n táº¡i hoáº·c thuá»™c má»™t phÃ²ng chat khÃ¡c, khÃ´ng cÃ²n Ã¢m tháº§m bá» qua reply.
+- KhÃ³a bi quan hai ngÆ°á»i dÃ¹ng theo thá»© tá»± ID cá»‘ Ä‘á»‹nh trÆ°á»›c khi tÃ¬m hoáº·c táº¡o phÃ²ng riÃªng, ngÄƒn hai yÃªu cáº§u Ä‘á»“ng thá»i táº¡o hai phÃ²ng 1â€“1 trÃ¹ng nhau.
+- Giá»›i háº¡n tÃ¬m kiáº¿m tá»‘i Ä‘a 20 tÃ i khoáº£n Ä‘ang hoáº¡t Ä‘á»™ng, loáº¡i tÃ i khoáº£n hiá»‡n táº¡i ngay táº¡i truy váº¥n database vÃ  sáº¯p xáº¿p theo username.
+- Thay kiá»ƒu `any` cá»§a káº¿t quáº£ tÃ¬m kiáº¿m Client báº±ng interface `SearchUser` vÃ  xá»­ lÃ½ lá»—i Axios an toÃ n.
+- Bá»• sung kiá»ƒm thá»­ há»“i quy cho reply xuyÃªn phÃ²ng vÃ  thá»© tá»± khÃ³a khi táº¡o phÃ²ng riÃªng.
 
-## Sửa trạng thái người đang online bị hiển thị ngoại tuyến
+## Sá»­a tráº¡ng thÃ¡i ngÆ°á»i Ä‘ang online bá»‹ hiá»ƒn thá»‹ ngoáº¡i tuyáº¿n
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-- Xác định Client trước đây chỉ nhận sự kiện presence phát sinh sau thời điểm đăng ký, nên có thể bỏ lỡ trạng thái của người đã online từ trước.
-- Bổ sung lệnh WebSocket `/app/presence.sync`. Ngay sau khi subscribe `/topic/presence`, Client yêu cầu Server phát lại ảnh chụp toàn bộ session đang hoạt động.
-- Khi một tài khoản kết nối lại, Server luôn xác nhận trạng thái online cho session đầu tiên thay vì phụ thuộc trạng thái của lịch offline cũ.
-- Trước khi phát offline sau thời gian chờ 5 giây, Server kiểm tra lại danh sách session; nếu người dùng đã kết nối lại thì bỏ qua sự kiện offline cũ.
-- Tách `broadcastStatus` để mọi sự kiện online, offline và đồng bộ ban đầu dùng chung một định dạng dữ liệu.
+- XÃ¡c Ä‘á»‹nh Client trÆ°á»›c Ä‘Ã¢y chá»‰ nháº­n sá»± kiá»‡n presence phÃ¡t sinh sau thá»i Ä‘iá»ƒm Ä‘Äƒng kÃ½, nÃªn cÃ³ thá»ƒ bá» lá»¡ tráº¡ng thÃ¡i cá»§a ngÆ°á»i Ä‘Ã£ online tá»« trÆ°á»›c.
+- Bá»• sung lá»‡nh WebSocket `/app/presence.sync`. Ngay sau khi subscribe `/topic/presence`, Client yÃªu cáº§u Server phÃ¡t láº¡i áº£nh chá»¥p toÃ n bá»™ session Ä‘ang hoáº¡t Ä‘á»™ng.
+- Khi má»™t tÃ i khoáº£n káº¿t ná»‘i láº¡i, Server luÃ´n xÃ¡c nháº­n tráº¡ng thÃ¡i online cho session Ä‘áº§u tiÃªn thay vÃ¬ phá»¥ thuá»™c tráº¡ng thÃ¡i cá»§a lá»‹ch offline cÅ©.
+- TrÆ°á»›c khi phÃ¡t offline sau thá»i gian chá» 5 giÃ¢y, Server kiá»ƒm tra láº¡i danh sÃ¡ch session; náº¿u ngÆ°á»i dÃ¹ng Ä‘Ã£ káº¿t ná»‘i láº¡i thÃ¬ bá» qua sá»± kiá»‡n offline cÅ©.
+- TÃ¡ch `broadcastStatus` Ä‘á»ƒ má»i sá»± kiá»‡n online, offline vÃ  Ä‘á»“ng bá»™ ban Ä‘áº§u dÃ¹ng chung má»™t Ä‘á»‹nh dáº¡ng dá»¯ liá»‡u.
 
-### Tệp chính đã thay đổi
+### Tá»‡p chÃ­nh Ä‘Ã£ thay Ä‘á»•i
 
 - `client/src/features/chat/hooks/useChatWebSocket.ts`
 - `server/src/main/java/atmin/modules/chat/controller/WebSocketChatController.java`
 - `server/src/main/java/atmin/modules/chat/presence/PresenceManager.java`
 
-## Phân biệt rõ tin nhắn đã xem và chưa xem
+## PhÃ¢n biá»‡t rÃµ tin nháº¯n Ä‘Ã£ xem vÃ  chÆ°a xem
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-- Hiển thị trạng thái thường trực dưới tin nhắn cuối cùng do tài khoản hiện tại gửi, thay vì giấu chung với thời gian.
-- Tin chưa được đọc hiển thị dấu check viền xám và nhãn `Chưa xem`.
-- Tin đã được đọc hiển thị avatar nhỏ của người nhận và nhãn xanh `Đã xem`, theo cách thể hiện quen thuộc của Messenger.
-- Chỉ hiển thị biên nhận ở tin gửi gần nhất để giao diện không lặp và không gây rối; thời gian vẫn chỉ xuất hiện khi hover hoặc focus/chạm.
+- Hiá»ƒn thá»‹ tráº¡ng thÃ¡i thÆ°á»ng trá»±c dÆ°á»›i tin nháº¯n cuá»‘i cÃ¹ng do tÃ i khoáº£n hiá»‡n táº¡i gá»­i, thay vÃ¬ giáº¥u chung vá»›i thá»i gian.
+- Tin chÆ°a Ä‘Æ°á»£c Ä‘á»c hiá»ƒn thá»‹ dáº¥u check viá»n xÃ¡m vÃ  nhÃ£n `ChÆ°a xem`.
+- Tin Ä‘Ã£ Ä‘Æ°á»£c Ä‘á»c hiá»ƒn thá»‹ avatar nhá» cá»§a ngÆ°á»i nháº­n vÃ  nhÃ£n xanh `ÄÃ£ xem`, theo cÃ¡ch thá»ƒ hiá»‡n quen thuá»™c cá»§a Messenger.
+- Chá»‰ hiá»ƒn thá»‹ biÃªn nháº­n á»Ÿ tin gá»­i gáº§n nháº¥t Ä‘á»ƒ giao diá»‡n khÃ´ng láº·p vÃ  khÃ´ng gÃ¢y rá»‘i; thá»i gian váº«n chá»‰ xuáº¥t hiá»‡n khi hover hoáº·c focus/cháº¡m.
 
-### Tệp chính đã thay đổi
+### Tá»‡p chÃ­nh Ä‘Ã£ thay Ä‘á»•i
 
 - `client/src/features/chat/components/ChatBox.tsx`
 - `client/src/features/chat/components/MessageItem.tsx`
@@ -551,60 +623,60 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - `client/src/App.tsx`
 - `client/src/index.css`
 
-## Gửi ảnh trong phòng chat và lưu trên Cloudinary
+## Gá»­i áº£nh trong phÃ²ng chat vÃ  lÆ°u trÃªn Cloudinary
 
-**Ngày cập nhật**: 18/08/2026
+**NgÃ y cáº­p nháº­t**: 18/08/2026
 
-- Thêm nút chọn ảnh ngay cạnh ô nhập tin nhắn, có trạng thái đang tải và hoạt động trên cả desktop lẫn mobile.
-- Chỉ nhận ảnh PNG, JPG/JPEG hợp lệ, dung lượng tối đa 5 MB và kích thước tối đa 4096 × 4096 pixel.
-- Server kiểm tra người gửi thuộc phòng chat trước khi tải ảnh lên Cloudinary.
-- Ảnh tin nhắn được lưu riêng trong `chat-realtime/messages/{conversationId}` và mỗi ảnh có mã duy nhất để không ghi đè lên nhau.
-- Sau khi tải thành công, Server lưu tin nhắn loại `IMAGE` vào database và phát realtime cho các thành viên trong phòng.
-- Ảnh được hiển thị gọn trong bong bóng chat, có thể bấm để mở ảnh đầy đủ ở tab mới và vẫn hỗ trợ reply.
+- ThÃªm nÃºt chá»n áº£nh ngay cáº¡nh Ã´ nháº­p tin nháº¯n, cÃ³ tráº¡ng thÃ¡i Ä‘ang táº£i vÃ  hoáº¡t Ä‘á»™ng trÃªn cáº£ desktop láº«n mobile.
+- Chá»‰ nháº­n áº£nh PNG, JPG/JPEG há»£p lá»‡, dung lÆ°á»£ng tá»‘i Ä‘a 5 MB vÃ  kÃ­ch thÆ°á»›c tá»‘i Ä‘a 4096 Ã— 4096 pixel.
+- Server kiá»ƒm tra ngÆ°á»i gá»­i thuá»™c phÃ²ng chat trÆ°á»›c khi táº£i áº£nh lÃªn Cloudinary.
+- áº¢nh tin nháº¯n Ä‘Æ°á»£c lÆ°u riÃªng trong `chat-realtime/messages/{conversationId}` vÃ  má»—i áº£nh cÃ³ mÃ£ duy nháº¥t Ä‘á»ƒ khÃ´ng ghi Ä‘Ã¨ lÃªn nhau.
+- Sau khi táº£i thÃ nh cÃ´ng, Server lÆ°u tin nháº¯n loáº¡i `IMAGE` vÃ o database vÃ  phÃ¡t realtime cho cÃ¡c thÃ nh viÃªn trong phÃ²ng.
+- áº¢nh Ä‘Æ°á»£c hiá»ƒn thá»‹ gá»n trong bong bÃ³ng chat, cÃ³ thá»ƒ báº¥m Ä‘á»ƒ má»Ÿ áº£nh Ä‘áº§y Ä‘á»§ á»Ÿ tab má»›i vÃ  váº«n há»— trá»£ reply.
 
-### Cấu hình môi trường cần có
+### Cáº¥u hÃ¬nh mÃ´i trÆ°á»ng cáº§n cÃ³
 
 - `CLOUDINARY_CLOUD_NAME`
 - `CLOUDINARY_API_KEY`
 - `CLOUDINARY_API_SECRET`
 
-### Kết quả kiểm tra
+### Káº¿t quáº£ kiá»ƒm tra
 
-- Client TypeScript biên dịch thành công và lint sạch.
-- Vite tạo bản dựng production thành công trong thư mục kiểm tra độc lập.
-- Toàn bộ test backend thành công, bao gồm test lưu và phát realtime tin nhắn ảnh.
+- Client TypeScript biÃªn dá»‹ch thÃ nh cÃ´ng vÃ  lint sáº¡ch.
+- Vite táº¡o báº£n dá»±ng production thÃ nh cÃ´ng trong thÆ° má»¥c kiá»ƒm tra Ä‘á»™c láº­p.
+- ToÃ n bá»™ test backend thÃ nh cÃ´ng, bao gá»“m test lÆ°u vÃ  phÃ¡t realtime tin nháº¯n áº£nh.
 
-### Kết quả kiểm tra
+### Káº¿t quáº£ kiá»ƒm tra
 
-- Client lint sạch và TypeScript biên dịch thành công.
-- Vite tạo bản dựng production thành công.
-- Kiểm tra trực quan ở desktop và viewport mobile 390 × 844: giao diện không tràn ngang, nội dung vừa đúng chiều cao màn hình và biểu tượng robot hiển thị sắc nét.
+- Client lint sáº¡ch vÃ  TypeScript biÃªn dá»‹ch thÃ nh cÃ´ng.
+- Vite táº¡o báº£n dá»±ng production thÃ nh cÃ´ng.
+- Kiá»ƒm tra trá»±c quan á»Ÿ desktop vÃ  viewport mobile 390 Ã— 844: giao diá»‡n khÃ´ng trÃ n ngang, ná»™i dung vá»«a Ä‘Ãºng chiá»u cao mÃ n hÃ¬nh vÃ  biá»ƒu tÆ°á»£ng robot hiá»ƒn thá»‹ sáº¯c nÃ©t.
 
-## Thu gọn tin nhắn, chống tràn và bổ sung gợi ý @CloseFriend
+## Thu gá»n tin nháº¯n, chá»‘ng trÃ n vÃ  bá»• sung gá»£i Ã½ @CloseFriend
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-- Thu nhỏ avatar cạnh tin nhắn, padding, cỡ chữ, bo góc và giới hạn chiều rộng bong bóng để cuộc trò chuyện thoáng, cân đối hơn.
-- Di chuyển thời gian và trạng thái gửi ra ngoài bong bóng; mặc định được ẩn, chỉ xuất hiện khi rê chuột hoặc focus/chạm vào tin nhắn trên thiết bị cảm ứng.
-- Bổ sung bảng gợi ý khi người dùng gõ `@`, `@c`, `@cl`... tương tự Messenger/Zalo. Có thể chọn CloseFriend AI bằng chuột, chạm, phím Enter hoặc Tab và đóng bằng Escape.
-- Tách nghiệp vụ mention vào `useBotMention.ts` và phần hiển thị vào `MentionSuggestions.tsx`, giữ `ChatBox` tập trung vào bố cục và sự kiện giao diện.
-- Bổ sung giới hạn chiều rộng, `min-width: 0`, chống tràn ngang và ngắt chuỗi dài tại App, phòng chat, vùng tin nhắn và nội dung từng bong bóng.
-- Thu gọn thanh nhập và nút robot/nút gửi nhưng vẫn giữ vùng thao tác phù hợp trên mobile.
-- Loại bỏ thẻ hướng dẫn bot khỏi danh sách trò chuyện bên trái; gợi ý CloseFriend AI chỉ xuất hiện theo ngữ cảnh khi người dùng gõ `@` trong ô nhập.
-- Gom các tin nhắn liên tiếp theo người gửi và chỉ hiển thị avatar tại tin cuối của mỗi cụm. Các tin cùng người được đặt gần nhau, vẫn giữ khoảng trống căn hàng để bong bóng không bị lệch; avatar xuất hiện lại khi đổi người gửi hoặc bot phản hồi.
+- Thu nhá» avatar cáº¡nh tin nháº¯n, padding, cá»¡ chá»¯, bo gÃ³c vÃ  giá»›i háº¡n chiá»u rá»™ng bong bÃ³ng Ä‘á»ƒ cuá»™c trÃ² chuyá»‡n thoÃ¡ng, cÃ¢n Ä‘á»‘i hÆ¡n.
+- Di chuyá»ƒn thá»i gian vÃ  tráº¡ng thÃ¡i gá»­i ra ngoÃ i bong bÃ³ng; máº·c Ä‘á»‹nh Ä‘Æ°á»£c áº©n, chá»‰ xuáº¥t hiá»‡n khi rÃª chuá»™t hoáº·c focus/cháº¡m vÃ o tin nháº¯n trÃªn thiáº¿t bá»‹ cáº£m á»©ng.
+- Bá»• sung báº£ng gá»£i Ã½ khi ngÆ°á»i dÃ¹ng gÃµ `@`, `@c`, `@cl`... tÆ°Æ¡ng tá»± Messenger/Zalo. CÃ³ thá»ƒ chá»n CloseFriend AI báº±ng chuá»™t, cháº¡m, phÃ­m Enter hoáº·c Tab vÃ  Ä‘Ã³ng báº±ng Escape.
+- TÃ¡ch nghiá»‡p vá»¥ mention vÃ o `useBotMention.ts` vÃ  pháº§n hiá»ƒn thá»‹ vÃ o `MentionSuggestions.tsx`, giá»¯ `ChatBox` táº­p trung vÃ o bá»‘ cá»¥c vÃ  sá»± kiá»‡n giao diá»‡n.
+- Bá»• sung giá»›i háº¡n chiá»u rá»™ng, `min-width: 0`, chá»‘ng trÃ n ngang vÃ  ngáº¯t chuá»—i dÃ i táº¡i App, phÃ²ng chat, vÃ¹ng tin nháº¯n vÃ  ná»™i dung tá»«ng bong bÃ³ng.
+- Thu gá»n thanh nháº­p vÃ  nÃºt robot/nÃºt gá»­i nhÆ°ng váº«n giá»¯ vÃ¹ng thao tÃ¡c phÃ¹ há»£p trÃªn mobile.
+- Loáº¡i bá» tháº» hÆ°á»›ng dáº«n bot khá»i danh sÃ¡ch trÃ² chuyá»‡n bÃªn trÃ¡i; gá»£i Ã½ CloseFriend AI chá»‰ xuáº¥t hiá»‡n theo ngá»¯ cáº£nh khi ngÆ°á»i dÃ¹ng gÃµ `@` trong Ã´ nháº­p.
+- Gom cÃ¡c tin nháº¯n liÃªn tiáº¿p theo ngÆ°á»i gá»­i vÃ  chá»‰ hiá»ƒn thá»‹ avatar táº¡i tin cuá»‘i cá»§a má»—i cá»¥m. CÃ¡c tin cÃ¹ng ngÆ°á»i Ä‘Æ°á»£c Ä‘áº·t gáº§n nhau, váº«n giá»¯ khoáº£ng trá»‘ng cÄƒn hÃ ng Ä‘á»ƒ bong bÃ³ng khÃ´ng bá»‹ lá»‡ch; avatar xuáº¥t hiá»‡n láº¡i khi Ä‘á»•i ngÆ°á»i gá»­i hoáº·c bot pháº£n há»“i.
 
-## Chuyển giao diện chat sang phong cách Messenger
+## Chuyá»ƒn giao diá»‡n chat sang phong cÃ¡ch Messenger
 
-**Ngày cập nhật**: 17/08/2026
+**NgÃ y cáº­p nháº­t**: 17/08/2026
 
-- Thay giao diện glassmorphism và nền gradient bằng bố cục trắng sạch, đường phân cách mảnh và màu xanh `#0084ff` đặc trưng của ứng dụng nhắn tin hiện đại.
-- Thiết kế lại thanh bên thành khu vực `Đoạn chat`, bổ sung ô tìm kiếm người trò chuyện hoạt động thực tế và trạng thái đang hoạt động theo phong cách Messenger.
-- Chuyển bong bóng của người gửi sang màu xanh, người nhận sang xám nhạt và bot sang xanh nhạt; loại bỏ bóng đổ nặng để các cụm tin nhắn gọn và dễ đọc hơn.
-- Làm lại header phòng chat, màn hình trống, thanh nhập dạng pill, nút bot và nút gửi theo cùng hệ màu xanh.
-- Đồng bộ avatar robot thành hình tròn xanh, vẫn giữ robot làm nhận diện riêng nhưng hòa hợp với giao diện Messenger.
-- Làm mới màn hình đăng nhập bằng nền xám nhạt, thẻ trắng, input viền đơn giản và nút xanh; giữ đầy đủ responsive mobile và safe-area.
+- Thay giao diá»‡n glassmorphism vÃ  ná»n gradient báº±ng bá»‘ cá»¥c tráº¯ng sáº¡ch, Ä‘Æ°á»ng phÃ¢n cÃ¡ch máº£nh vÃ  mÃ u xanh `#0084ff` Ä‘áº·c trÆ°ng cá»§a á»©ng dá»¥ng nháº¯n tin hiá»‡n Ä‘áº¡i.
+- Thiáº¿t káº¿ láº¡i thanh bÃªn thÃ nh khu vá»±c `Äoáº¡n chat`, bá»• sung Ã´ tÃ¬m kiáº¿m ngÆ°á»i trÃ² chuyá»‡n hoáº¡t Ä‘á»™ng thá»±c táº¿ vÃ  tráº¡ng thÃ¡i Ä‘ang hoáº¡t Ä‘á»™ng theo phong cÃ¡ch Messenger.
+- Chuyá»ƒn bong bÃ³ng cá»§a ngÆ°á»i gá»­i sang mÃ u xanh, ngÆ°á»i nháº­n sang xÃ¡m nháº¡t vÃ  bot sang xanh nháº¡t; loáº¡i bá» bÃ³ng Ä‘á»• náº·ng Ä‘á»ƒ cÃ¡c cá»¥m tin nháº¯n gá»n vÃ  dá»… Ä‘á»c hÆ¡n.
+- LÃ m láº¡i header phÃ²ng chat, mÃ n hÃ¬nh trá»‘ng, thanh nháº­p dáº¡ng pill, nÃºt bot vÃ  nÃºt gá»­i theo cÃ¹ng há»‡ mÃ u xanh.
+- Äá»“ng bá»™ avatar robot thÃ nh hÃ¬nh trÃ²n xanh, váº«n giá»¯ robot lÃ m nháº­n diá»‡n riÃªng nhÆ°ng hÃ²a há»£p vá»›i giao diá»‡n Messenger.
+- LÃ m má»›i mÃ n hÃ¬nh Ä‘Äƒng nháº­p báº±ng ná»n xÃ¡m nháº¡t, tháº» tráº¯ng, input viá»n Ä‘Æ¡n giáº£n vÃ  nÃºt xanh; giá»¯ Ä‘áº§y Ä‘á»§ responsive mobile vÃ  safe-area.
 
-### Tệp chính đã thay đổi
+### Tá»‡p chÃ­nh Ä‘Ã£ thay Ä‘á»•i
 
 - `client/src/App.tsx`
 - `client/src/features/auth/components/Login.tsx`
@@ -614,7 +686,7 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - `client/src/features/chat/components/MentionSuggestions.tsx`
 - `client/src/features/chat/components/MessageItem.tsx`
 
-### Tệp chính đã thay đổi
+### Tá»‡p chÃ­nh Ä‘Ã£ thay Ä‘á»•i
 
 - `client/src/features/chat/hooks/useBotMention.ts`
 - `client/src/features/chat/components/MentionSuggestions.tsx`
@@ -622,3 +694,30 @@ Triển khai toàn diện hệ thống Web Chat có hỗ trợ AI, tuân thủ c
 - `client/src/features/chat/components/MessageItem.tsx`
 - `client/src/App.tsx`
 - `client/src/index.css`
+
+## C?p nh?t 20/08/2026 — S?a l?i Server b? ch?m/h?ng khi chat nhi?u ngu?i
+
+### T?ng quan
+Kh?c ph?c tình tr?ng th?t c? chai hi?u nang (bottleneck) d?n d?n treo ho?c s?p Server khi m?t ngu?i dùng m?/chat v?i nhi?u ngu?i khác nhau cùng m?t th?i di?m.
+
+### Chi ti?t thay d?i
+- **Xóa b? khóa DB (Pessimistic Lock) trên User**: Tru?c dây, API t?o ho?c l?y phòng chat (getOrCreatePrivateConversation) dã s? d?ng \lockUser()\ (g?i \SELECT ... FOR UPDATE\) d? khóa (lock) toàn b? hàng d? li?u c?a ngu?i dùng trong DB nh?m tránh trùng l?p phòng chat. Ði?u này d?n d?n vi?c n?u ngu?i dùng A tuong tác v?i nhi?u ngu?i cùng lúc, t?t c? các request d?u ph?i x?p hàng ch? m? khóa hàng d? li?u c?a A, gây c?n ki?t Connection Pool (Hikari) và làm ki?t qu? Thread Pool c?a Tomcat, d?n d?n s?p toàn b? h? th?ng.
+- **S? d?ng Khóa c?p ?ng d?ng (Application-level Lock)**: Thay th? b?ng \ConcurrentHashMap\ khóa theo t?ng "C?p ngu?i dùng" (\irstUserId:secondUserId\). Gi? dây, ch? khi nào có 2 request t?o phòng gi?a dúng 2 ngu?i A và B x?y ra cùng m?t mili-giây thì h? th?ng m?i ph?i ch? nhau, không còn vi?c A chat v?i C b? block b?i A chat v?i B. Tránh du?c vi?c c?n ki?t Connection Pool.
+
+### File dã s?a
+- \ChatServiceImpl.java\: Thay th? hàm \lockUser\ b?ng logic \ConcurrentHashMap\ và kh?i \synchronized\. Xóa vi?c lock User DB.
+
+
+## C?p nh?t 20/08/2026 — S?a l?i Upload ?nh trong Chat
+
+### T?ng quan
+Kh?c ph?c l?i không th? g?i ?nh trong phòng chat (Client báo l?i nhung ?nh không luu du?c lên Cloudinary và Server).
+
+### Chi ti?t thay d?i
+- **Xóa b? ràng bu?c consumes = "multipart/form-data" t?i API G?i ?nh**: Gi?ng nhu l?i t?ng g?p ? tính nang d?i ?nh d?i di?n (Avatar), khi phía Frontend (Axios) b? ép bu?c Content-Type: multipart/form-data th? công, trình duy?t s? không t? d?ng sinh ra chu?i oundary=... c?n thi?t. Do dó, khi Request bay d?n Spring Boot, Spring Boot ki?m tra th?y Header không dúng chu?n Multipart (do thi?u boundary) nên Spring dã t? ch?i x? lý và tr? v? l?i 415 ho?c 404.
+- Vi?c xóa b? thu?c tính consumes trong @PostMapping ? ChatController.java giúp Spring Boot t? d?ng nh?n di?n Request t? trình duy?t và map chính xác vào MultipartFile mà không b? b?t l?i kh?t khe v? format Header.
+
+### File dã s?a
+- \ChatController.java\: Xóa consumes = "multipart/form-data" t?i hàm sendImage.
+
+
