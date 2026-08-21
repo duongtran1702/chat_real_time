@@ -5,7 +5,7 @@ spring:
     import: optional:file:.env[.properties]
   profiles:
     # Chạy trên máy mặc định dùng local. Render phải đặt SPRING_PROFILES_ACTIVE=cloud.
-    active: ${SPRING_PROFILES_ACTIVE:local}
+    active: ${SPRING_PROFILES_ACTIVE:cloud}
 
   ai:
     openai:
